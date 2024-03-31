@@ -20,6 +20,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.selected_standard = None
         self.new_standards = []
         self.keywords = []
+        self.potential_new_standards = []
 
         # File paths
         self.current_file_path = ""
@@ -142,6 +143,11 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.current_standards_tree.heading("No.", text="No.")
         self.current_standards_tree.heading("Criteria", text="Criteria")
         self.current_standards_tree.heading("Level", text="Level")
+        self.current_standards_tree.column("#0", width=0, stretch=tk.NO)
+        self.current_standards_tree.column("No.", width=50, stretch=tk.NO)
+        self.current_standards_tree.column(
+            "Criteria", width=500, stretch=tk.NO)
+        self.current_standards_tree.column("Level", width=100, stretch=tk.NO)
         self.current_standards_tree.pack()
 
         for standard in self.current_standards:
@@ -220,7 +226,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
                             edit_weight + keyword_proportion * keyword_weight
 
                         matches[curr_std][new_standard["id"]] = {
-                            "weighted_similarity": weighted_similarity,
+                            "weighted_similarity": round(100 * weighted_similarity, 2),
                             "cosine": cosine_sim,
                             "edit": edit_dist,
                             "keyword_proportion": keyword_proportion,
@@ -233,46 +239,57 @@ class StandardsHelperApp:  # pylint: disable=R0902
                             edit_dist * edit_weight
 
                         matches[curr_std][new_standard["id"]] = {
-                            "weighted_similarity": weighted_similarity,
+                            "weighted_similarity": round(100 * weighted_similarity, 2),
                             "cosine": cosine_sim,
                             "edit": edit_dist,
                         }
 
         show_matches(original_standard, matches, curr_std)
 
-        # # Ask the user for the next action: show more matches, choose another
-        # # standard, exit or write the new standards to the current standards file
-        # next_action = input(
-        #     "Enter 'more' to show more matches, 'choose' to choose another standard, 'exit' to exit, or 'write' to write the new standards to the current standards file: ")
-        #
-        # if next_action.lower() in ['e', 'exit', 'q', 'quit']:
-        #     break
-        #
-        # if next_action.lower() in ['m', 'more']:
-        #     matches_to_show += 10
-        #     show_matches(original_standard, matches,
-        #                  user_option, matches_to_show)
-        #
-        # if next_action.lower() in ['c', 'choose']:
-        #     continue
-        #
-        # if next_action.lower() in ['w', 'write']:
-        #     # Write the new standards to the current standards file
-        #     standard_id = input(
-        #         "Enter the index of the standard to write to the current standards file: ")
-        #
-        #     if standard_id in matches[user_option]:
-        #         print("Writing the new standard to the current standards file.")
-        #         match = matches[user_option][standard_id]
-        #         # Filter the new standard to show the one that matches the id
-        #         new_standard = filter(
-        #             lambda x: x["id"] == standard_id, new_standards)
-        #         new_standard = next(new_standard, None)
-        #         if new_standard:
-        #             print(f"New standard: {new_standard}")
-        #             update_standards(user_option, new_standard["id"] or "",
-        #                              new_standard["text"] or "", new_standard["level"] or "", "RCS")
-        #         continue
+        # Add the matching new standards to self.potential_new_standards
+        self.potential_new_standards = []
+        # Filter the new standards with the std_id of the matching standards
+        # But first, create a new list from the new standards sorted by the
+        # weighted similarity
+        sorted_new_standards = sorted(self.new_standards, key=lambda x: matches[curr_std].get(
+            x["id"], {}).get("weighted_similarity", 0), reverse=True)
+        print(f"Sorted new standards: {len(sorted_new_standards)}")
+        print(f"First sorted new standard: {sorted_new_standards[0]}")
+        for new_standard in sorted_new_standards:
+            if new_standard["id"] in matches[curr_std]:
+                match = matches[curr_std][new_standard["id"]]
+                self.potential_new_standards.append(new_standard)
+        print(f"Potential new standards: {len(self.potential_new_standards)}")
+        print(
+            f"First potential new standard: {self.potential_new_standards[0]}")
+
+        # Display the matching new standards in a Treeview
+        if self.matching_new_standards_tree:
+            self.matching_new_standards_tree.destroy()
+
+        self.matching_new_standards_tree = ttk.Treeview(
+            self.master, columns=("No.", "New Criteria", "Level", "Similarity"), show="headings")
+        self.matching_new_standards_tree.heading("No.", text="No.")
+        self.matching_new_standards_tree.heading(
+            "New Criteria", text="New Criteria")
+        self.matching_new_standards_tree.heading("Level", text="Level")
+        self.matching_new_standards_tree.heading(
+            "Similarity", text="Similarity")
+        self.matching_new_standards_tree.column("#0", width=0, stretch=tk.NO)
+        self.matching_new_standards_tree.column("No.", width=50, stretch=tk.NO)
+        self.matching_new_standards_tree.column(
+            "New Criteria", width=500, stretch=tk.NO)
+        self.matching_new_standards_tree.column(
+            "Level", width=100, stretch=tk.NO)
+        self.matching_new_standards_tree.column(
+            "Similarity", width=100, stretch=tk.NO)
+        self.matching_new_standards_tree.pack()
+
+        # Initially, show only the top 10 matches
+        for new_standard in self.potential_new_standards[:10]:
+            self.matching_new_standards_tree.insert("", "end", values=(
+                new_standard["id"], new_standard["text"], new_standard["level"],
+                matches[curr_std].get(new_standard["id"], {}).get("weighted_similarity", 0)))
 
 
 root = tk.Tk()
