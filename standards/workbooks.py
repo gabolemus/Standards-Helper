@@ -8,10 +8,11 @@ from openpyxl import load_workbook
 import standards.config as cfg
 
 
-def get_original_standards() -> list[dict[str, Union[str, None]]]:
+def get_original_standards(path: str, worksheet: str) -> list[dict[str, Union[str, None]]]:
     """Gets the list with the original standards."""
-    original_workbook = load_workbook(cfg.original_standards_file)
-    original_worksheet = original_workbook[cfg.original_standards_ws[0]]
+    original_workbook = load_workbook(path)
+    original_worksheet = original_workbook[cfg.original_standards_ws[cfg.get_worksheet_index(
+        worksheet)]]
     original_rows = original_worksheet.iter_rows(
         min_row=4, min_col=2, max_col=4, values_only=True)
 
