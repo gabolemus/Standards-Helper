@@ -4,7 +4,8 @@ from typing import Any, Tuple
 
 from standards.text_comparison import (cosine_similarity_compare,
                                        edit_distance_compare)
-from standards.workbooks import get_new_standards, get_original_standards
+from standards.workbooks import (get_new_standards, get_original_standards,
+                                 update_standards)
 
 
 # Function to calculate the maximum similarity score for multiple lines of text
@@ -19,6 +20,17 @@ def calculate_max_similarity(original_text, new_text):
 
 original_standards = get_original_standards()
 new_standards = get_new_standards()
+
+
+def show_matches(original_standard, matches, user_option, amount=10):
+    if original_standard:
+        print(f"Original standard: {original_standard['text']}")
+    print(f"Top {amount} matches:")
+    for i, (std_id, match) in enumerate(sorted(matches[user_option].items(),
+                                               key=lambda x: x[1]["weighted_similarity"],
+                                               reverse=True)[:amount]):
+        print(f"{i+1}. {std_id}: {match}")
+    print("\n")
 
 
 def get_text_comparisons(text1: str, text2: str) -> Tuple[float, float]:
@@ -51,10 +63,12 @@ def get_text_comparisons(text1: str, text2: str) -> Tuple[float, float]:
 
 # Let the user choose the original standard
 while True:
+    matches_to_show = 10
+
     user_option = input(
         "Please enter the number of the standard to compare (enter 'quit' to exit): ")
 
-    if user_option.lower() in ['q', 'quit']:
+    if user_option.lower() in ['e', 'exit', 'q', 'quit']:
         break
 
     # Ask the user for keywords
@@ -106,12 +120,37 @@ while True:
                         "edit": edit_dist,
                     }
 
-    # Show the matches
-    if original_standard:
-        print(f"Original standard: {original_standard['text']}")
-    print("Top 10 matches:")
-    for i, (std_id, match) in enumerate(sorted(matches[user_option].items(),
-                                               key=lambda x: x[1]["weighted_similarity"],
-                                               reverse=True)[:10]):
-        print(f"{i+1}. {std_id}: {match}")
-    print("\n")
+    show_matches(original_standard, matches, user_option)
+
+    # Ask the user for the next action: show more matches, choose another
+    # standard, exit or write the new standards to the current standards file
+    next_action = input(
+        "Enter 'more' to show more matches, 'choose' to choose another standard, 'exit' to exit, or 'write' to write the new standards to the current standards file: ")
+
+    if next_action.lower() in ['e', 'exit', 'q', 'quit']:
+        break
+
+    if next_action.lower() in ['m', 'more']:
+        matches_to_show += 10
+        show_matches(original_standard, matches, user_option, matches_to_show)
+
+    if next_action.lower() in ['c', 'choose']:
+        continue
+
+    if next_action.lower() in ['w', 'write']:
+        # Write the new standards to the current standards file
+        standard_id = input(
+            "Enter the index of the standard to write to the current standards file: ")
+
+        if standard_id in matches[user_option]:
+            print("Writing the new standard to the current standards file.")
+            match = matches[user_option][standard_id]
+            # Filter the new standard to show the one that matches the id
+            new_standard = filter(
+                lambda x: x["id"] == standard_id, new_standards)
+            new_standard = next(new_standard, None)
+            if new_standard:
+                print(f"New standard: {new_standard}")
+                update_standards(user_option, new_standard["id"] or "",
+                                 new_standard["text"] or "", new_standard["level"] or "", "RCS")
+            continue
