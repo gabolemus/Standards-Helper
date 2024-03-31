@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, ttk
 
 from standards.workbooks import get_original_standards
 
@@ -60,6 +60,8 @@ class StandardsHelperApp:  # pylint: disable=R0902
             state="disabled", width=30)
         self.compare_button.pack()
 
+        self.current_standards_tree = None
+
     def add_placeholder(self, entry, placeholder):
         entry.insert(0, placeholder)
         entry.bind("<FocusIn>", lambda event: self.on_entry_focus_in(
@@ -111,14 +113,30 @@ class StandardsHelperApp:  # pylint: disable=R0902
             self.display_current_standards()
 
     def display_current_standards(self):
-        print(self.current_file_path)
-        print(self.current_worksheet)
         if not self.current_worksheet:
             worksheet = self.worksheets[0]
         else:
             worksheet = self.current_worksheet
+
         self.current_standards = get_original_standards(
             self.current_file_path, worksheet)
+
+        # Populate the listbox with the current standards
+        if self.current_standards_tree:
+            self.current_standards_tree.destroy()
+
+        self.current_standards_tree = ttk.Treeview(
+            self.master, columns=("No.", "Criteria", "Level"), show="headings")
+        self.current_standards_tree.heading("No.", text="No.")
+        self.current_standards_tree.heading("Criteria", text="Criteria")
+        self.current_standards_tree.heading("Level", text="Level")
+        self.current_standards_tree.pack()
+
+        for standard in self.current_standards:
+            if standard:
+                self.current_standards_tree.insert("", "end", values=(
+                    standard["id"], standard["text"], standard["level"]))
+
         print(
             f"Updated current standards. Length: {len(self.current_standards)}")
 
