@@ -32,6 +32,7 @@ def get_text_comparisons(text1: str, text2: str) -> Tuple[float, float]:
     edit_dists = []
     max_cosine_sim = 0.0
     max_edit_dist = 0.0
+
     for line in text2.split("\n"):
         cosine_sim_val = cosine_similarity_compare(text1, line)
         edit_dist_val = edit_distance_compare(text1, line)
@@ -44,6 +45,7 @@ def get_text_comparisons(text1: str, text2: str) -> Tuple[float, float]:
 
     if max_cosine_sim > max_edit_dist:
         return (max_cosine_sim, cosine_sims[cosine_sims.index(max_cosine_sim)])
+
     return (max_edit_dist, edit_dists[edit_dists.index(max_edit_dist)])
 
 
