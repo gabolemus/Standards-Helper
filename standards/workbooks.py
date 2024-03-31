@@ -31,9 +31,9 @@ def get_original_standards(path: str, worksheet: str) -> list[dict[str, Union[st
     return original_standards
 
 
-def get_new_standards() -> list[dict[str, Union[str, None]]]:
+def get_new_standards(path: str) -> list[dict[str, Union[str, None]]]:
     """Gets the list with the new standards."""
-    new_workbook = load_workbook(cfg.new_standards_file)
+    new_workbook = load_workbook(path)
     new_worksheet = new_workbook["Unified Standard"]
     new_rows = new_worksheet.iter_rows(
         min_row=4, min_col=1, max_col=3, values_only=True)
