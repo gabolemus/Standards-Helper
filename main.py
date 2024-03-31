@@ -32,17 +32,23 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.selected_worksheet_index = tk.IntVar(value=-1)
 
         # UI Elements
+        self.file_frame = tk.Frame(master)
+        self.file_frame.pack()
+
         self.current_file_button = tk.Button(
-            master, text="Select Comparison File",
+            self.file_frame, text="Select Comparison File",
             command=self.select_current_file, width=30)
-        self.current_file_button.pack()
+        self.current_file_button.pack(side=tk.LEFT)
+        self.current_file_button.config(bg="#b3ffb3")
 
         self.new_file_button = tk.Button(
-            master, text="Select Unified Standards File", command=self.select_new_file, width=30)
-        self.new_file_button.pack()
+            self.file_frame, text="Select Unified Standards File",
+            command=self.select_new_file, width=30)
+        self.new_file_button.pack(side=tk.LEFT, padx=5)
+        self.new_file_button.config(bg="#b3e6ff")
 
         self.worksheet_frame = tk.Frame(master)
-        self.worksheet_frame.pack()
+        self.worksheet_frame.pack(pady=10)
 
         self.worksheet_radio_buttons = []
         for i, worksheet in enumerate(self.worksheets):
@@ -53,13 +59,14 @@ class StandardsHelperApp:  # pylint: disable=R0902
             self.worksheet_radio_buttons.append(radio_button)
 
         self.filter_entry = tk.Entry(master, width=70)
-        self.filter_entry.pack()
+        self.filter_entry.pack(pady=2.5)
         self.filter_entry.bind("<KeyRelease>", lambda _: self.filter_current_standards(
             self.filter_entry.get()))
-        self.add_placeholder(self.filter_entry, "Filter by criteria or No.")
+        self.add_placeholder(
+            self.filter_entry, "Enter the name of the criteria or its No.")
 
         self.keywords_entry = tk.Entry(master, width=70)
-        self.keywords_entry.pack()
+        self.keywords_entry.pack(pady=2.5)
         self.keywords_entry.bind("<KeyRelease>", lambda _: self.filter_keywords(
             self.keywords_entry.get()))
         self.add_placeholder(self.keywords_entry,
@@ -68,7 +75,8 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.compare_button = tk.Button(
             master, text="Start Comparison", command=self.start_comparison,
             state="disabled", width=30)
-        self.compare_button.pack()
+        self.compare_button.pack(pady=5)
+        self.compare_button.config(bg="#b3ffb3")
 
         self.current_standards_tree = None
 
@@ -146,9 +154,9 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.current_standards_tree.column("#0", width=0, stretch=tk.NO)
         self.current_standards_tree.column("No.", width=50, stretch=tk.NO)
         self.current_standards_tree.column(
-            "Criteria", width=500, stretch=tk.NO)
+            "Criteria", width=750, stretch=tk.NO)
         self.current_standards_tree.column("Level", width=100, stretch=tk.NO)
-        self.current_standards_tree.pack()
+        self.current_standards_tree.pack(pady=10)
 
         for standard in self.current_standards:
             if standard:
@@ -257,7 +265,6 @@ class StandardsHelperApp:  # pylint: disable=R0902
         print(f"First sorted new standard: {sorted_new_standards[0]}")
         for new_standard in sorted_new_standards:
             if new_standard["id"] in matches[curr_std]:
-                match = matches[curr_std][new_standard["id"]]
                 self.potential_new_standards.append(new_standard)
         print(f"Potential new standards: {len(self.potential_new_standards)}")
         print(
@@ -278,12 +285,12 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.matching_new_standards_tree.column("#0", width=0, stretch=tk.NO)
         self.matching_new_standards_tree.column("No.", width=50, stretch=tk.NO)
         self.matching_new_standards_tree.column(
-            "New Criteria", width=500, stretch=tk.NO)
+            "New Criteria", width=650, stretch=tk.NO)
         self.matching_new_standards_tree.column(
             "Level", width=100, stretch=tk.NO)
         self.matching_new_standards_tree.column(
             "Similarity", width=100, stretch=tk.NO)
-        self.matching_new_standards_tree.pack()
+        self.matching_new_standards_tree.pack(pady=10)
 
         # Initially, show only the top 10 matches
         for new_standard in self.potential_new_standards[:10]:
