@@ -15,6 +15,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.selected_current_file = False
         self.selected_new_file = False
         self.current_standards = []
+        self.selected_standard = None  # Added selected_standard variable
 
         # File paths
         self.current_file_path = ""
@@ -117,11 +118,9 @@ class StandardsHelperApp:  # pylint: disable=R0902
             worksheet = self.worksheets[0]
         else:
             worksheet = self.current_worksheet
-
         self.current_standards = get_original_standards(
             self.current_file_path, worksheet)
 
-        # Populate the listbox with the current standards
         if self.current_standards_tree:
             self.current_standards_tree.destroy()
 
@@ -137,15 +136,24 @@ class StandardsHelperApp:  # pylint: disable=R0902
                 self.current_standards_tree.insert("", "end", values=(
                     standard["id"], standard["text"], standard["level"]))
 
+        self.current_standards_tree.bind(
+            "<ButtonRelease-1>", self.on_treeview_select)  # Bind the selection event
+
         print(
             f"Updated current standards. Length: {len(self.current_standards)}")
+
+    def on_treeview_select(self, _):
+        if self.current_standards_tree:
+            item = self.current_standards_tree.selection()[0]
+            standard = self.current_standards_tree.item(item)["values"]
+            self.selected_standard = standard
+            print(f"Selected standard: {self.selected_standard}")
 
     def start_comparison(self):
         # Add logic to compare standards and display results
         pass
 
 
-# Start the app maximized
 root = tk.Tk()
 root.state("zoomed")
 app = StandardsHelperApp(root)
