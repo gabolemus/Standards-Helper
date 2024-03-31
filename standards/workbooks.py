@@ -48,3 +48,32 @@ def get_new_standards() -> list[dict[str, Union[str, None]]]:
             new_standards.append(standard)
 
     return new_standards
+
+
+def update_standards(id_value: str, new_id: str, new_text: str, new_level: str,
+                     worksheet_name: str
+                     ) -> None:
+    """Update the standards with new values."""
+    workbook = load_workbook(cfg.original_standards_file)
+    worksheet = workbook[worksheet_name]
+
+    row_number = None
+
+    for row in worksheet.iter_rows(min_row=4, min_col=2, max_col=2):
+        if row[0].value == id_value:
+            row_number = row[0].row
+            break
+
+    if not row_number:
+        return
+
+    # Update the values in the row.
+    worksheet[f"F{row_number}"] = new_id
+    worksheet[f"G{row_number}"] = new_text
+    worksheet[f"H{row_number}"] = new_level
+
+    try:
+        workbook.save(cfg.original_standards_file)
+    except PermissionError:
+        print("Please close the file first before updating the standards.")
+        return
