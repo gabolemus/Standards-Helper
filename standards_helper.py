@@ -1,21 +1,51 @@
 """Contains the logic for the program that helps link the standards."""
 
+from typing import Any, Tuple
+
 from standards.text_comparison import (cosine_similarity_compare,
                                        edit_distance_compare)
 from standards.workbooks import get_new_standards, get_original_standards
 
-original_standards = get_original_standards()
-# print("Original standards:")
-# for standard in original_standards:
-#     print(f"{standard['id']}: {standard['text']}")
-#     # print(f"{standard['id']}: {standard['text']} | level: {standard['level']}")
 
-# Begin reading the new standards file from row 4, columns A, B and C
+# Function to calculate the maximum similarity score for multiple lines of text
+def calculate_max_similarity(original_text, new_text):
+    max_similarity = 0.0
+    for line in new_text.split("\n"):
+        cosine_similarity = cosine_similarity_compare(original_text, line)
+        edit_distance = edit_distance_compare(original_text, line)
+        max_similarity = max(max_similarity, cosine_similarity, edit_distance)
+    return max_similarity
+
+
+original_standards = get_original_standards()
 new_standards = get_new_standards()
-# print("\nNew standards:")
-# for standard in new_standards:
-#     # print(f"{standard['id']}: {standard['text']}")
-#     print(f"{standard['id']}: {standard['text']} | level: {standard['level']}")
+
+
+def get_text_comparisons(text1: str, text2: str) -> Tuple[float, float]:
+    """Gets the comparisons values between two texts."""
+    if "\n" not in text2:
+        cosine_sim_val = cosine_similarity_compare(text1, text2)
+        edit_dist_val = edit_distance_compare(text1, text2)
+        return (cosine_sim_val, edit_dist_val)
+
+    cosine_sims = []
+    edit_dists = []
+    max_cosine_sim = 0.0
+    max_edit_dist = 0.0
+    for line in text2.split("\n"):
+        cosine_sim_val = cosine_similarity_compare(text1, line)
+        edit_dist_val = edit_distance_compare(text1, line)
+
+        max_cosine_sim = max(max_cosine_sim, cosine_sim_val)
+        max_edit_dist = max(max_edit_dist, edit_dist_val)
+
+        cosine_sims.append(cosine_sim_val)
+        edit_dists.append(edit_dist_val)
+
+    if max_cosine_sim > max_edit_dist:
+        return (max_cosine_sim, cosine_sims[cosine_sims.index(max_cosine_sim)])
+    return (max_edit_dist, edit_dists[edit_dists.index(max_edit_dist)])
+
 
 # Let the user choose the original standard
 while True:
@@ -25,48 +55,61 @@ while True:
     if user_option.lower() in ['q', 'quit']:
         break
 
-    matches = {
+    # Ask the user for keywords
+    keywords_input = input(
+        "Enter keywords separated by commas (or leave blank): ")
+
+    # Process keywords
+    keywords = [kw.strip() for kw in keywords_input.split(",")
+                if kw.strip()] if keywords_input else []
+
+    matches: Any = {
         user_option: {}
     }
-    original_standard = list(filter(
-        lambda x: x["id"] == user_option, original_standards))[0]
+    original_standard = next(
+        (std for std in original_standards if std["id"] == user_option), None)
 
-    for new_standard in new_standards:
-        if new_standard["text"]:
-            if "\n" in new_standard["text"]:
-                scores = []
-                cosine_scores = []
-                edit_scores = []
-                for line in new_standard["text"].split("\n"):
-                    cosine_similarity = cosine_similarity_compare(
-                        original_standard["text"] or "", line)
-                    edit_distance = edit_distance_compare(
-                        original_standard["text"] or "", line)
-                    cosine_scores.append(cosine_similarity)
-                    edit_scores.append(edit_distance)
-                    scores.append(max(cosine_similarity, edit_distance))
-                max_val_idx = scores.index(max(scores))
-                cosine_val = cosine_scores[max_val_idx]
-                edit_val = edit_scores[max_val_idx]
-                matches[user_option][new_standard["id"]] = {
-                    "cosine": cosine_val,
-                    "edit": edit_val,
-                    "max": max(scores)
-                }
-            else:
-                cosine_similarity = cosine_similarity_compare(
-                    original_standard["text"] or "", new_standard["text"] or "")
-                edit_distance = edit_distance_compare(
-                    original_standard["text"] or "", new_standard["text"] or "")
-                matches[user_option][new_standard["id"]] = {
-                    "cosine": cosine_similarity,
-                    "edit": edit_distance,
-                    "max": max(cosine_similarity, edit_distance)
-                }
+    if original_standard:
+        for new_standard in new_standards:
+            if new_standard["text"] and original_standard["text"]:
+                cosine_sim, edit_dist = get_text_comparisons(
+                    original_standard["text"], new_standard["text"])
 
-    # Show the 10 new standards with the highest similarity; either cosine or edit distance
-    print(f"Original standard: {original_standard['text']}")
+                if keywords:
+                    cosine_weight = 0.3
+                    edit_weight = 0.3
+                    keyword_weight = 0.4
+
+                    keyword_proportion = len(
+                        [kw for kw in keywords if kw in new_standard["text"]]) / len(keywords)
+                    weighted_similarity = cosine_sim * cosine_weight + edit_dist * \
+                        edit_weight + keyword_proportion * keyword_weight
+
+                    matches[user_option][new_standard["id"]] = {
+                        "weighted_similarity": weighted_similarity,
+                        "cosine": cosine_sim,
+                        "edit": edit_dist,
+                        "keyword_proportion": keyword_proportion,
+                    }
+                else:
+                    cosine_weight = 0.5
+                    edit_weight = 0.5
+
+                    weighted_similarity = cosine_sim * cosine_weight + \
+                        edit_dist * edit_weight
+
+                    matches[user_option][new_standard["id"]] = {
+                        "weighted_similarity": weighted_similarity,
+                        "cosine": cosine_sim,
+                        "edit": edit_dist,
+                    }
+
+    # Show the matches
+    if original_standard:
+        print(f"Original standard: {original_standard['text']}")
     print("Top 10 matches:")
-    for i, match in enumerate(sorted(matches[user_option].items(), key=lambda x: x[1]["max"], reverse=True)[:10]):
-        print(f"{i+1}. {match[0]}: {match[1]}")
+    for i, (std_id, match) in enumerate(sorted(matches[user_option].items(),
+                                               key=lambda x: x[1]["weighted_similarity"],
+                                               reverse=True)[:10]):
+        print(f"{i+1}. {std_id}: {match}")
     print("\n")
