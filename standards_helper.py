@@ -2,6 +2,7 @@
 
 from typing import Any, Tuple
 
+import standards.config as cfg
 from standards.text_comparison import (cosine_similarity_compare,
                                        edit_distance_compare)
 from standards.workbooks import (get_new_standards, get_original_standards,
@@ -18,8 +19,9 @@ def calculate_max_similarity(original_text, new_text):
     return max_similarity
 
 
-original_standards = get_original_standards()
-new_standards = get_new_standards()
+original_standards = get_original_standards(
+    cfg.original_standards_file, cfg.original_standards_ws[0])
+new_standards = get_new_standards(cfg.new_standards_file)
 
 
 def show_matches(original_standard, matches, user_option, amount=10):
