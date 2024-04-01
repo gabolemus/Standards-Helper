@@ -134,11 +134,16 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
         self.populate_tree()
 
-        # Frame for the "Current selected requirement" label
-        self.currently_selected_frame = tk.Frame(master)
-        self.currently_selected_frame.pack(pady=10)
+        self.helper_inputs_frame = tk.Frame(master)
+        self.helper_inputs_frame.pack(pady=10)
+
+        self.currently_selected_frame = tk.Frame(self.helper_inputs_frame)
+        self.currently_selected_frame.pack(side=tk.LEFT, padx=50)
         self.currently_selected_label = None
         self.currently_selected_label_text = tk.StringVar()
+
+        self.show_only_non_matched = tk.IntVar(value=0)
+        self.show_only_non_matched_checkbox = None
 
         self.current_stds_frame = None
         self.current_standards_tree = None
@@ -176,16 +181,23 @@ class StandardsHelperApp:  # pylint: disable=R0902
             "", "end", values=("Optional Requirements", ""))
         for requirement, status in self.optional_requirements.items():
             self.program_requirements.insert(
-                "", "end", values=(requirement, status), tags=(self.get_status_color(status),))
+                "", "end", values=(requirement, status),
+                tags=(self.get_status_color(status, True),))
 
         # Color the requirements tree with the appropriate colors
         self.program_requirements.tag_configure('green', background='#b3ffb3')
+        self.program_requirements.tag_configure('yellow', background='#ffffb3')
         self.program_requirements.tag_configure('red', background='#ff9999')
 
-    def get_status_color(self, status):
+    def get_status_color(self, status, is_optional=False):
+        if is_optional:
+            if status:
+                return 'green'
+            return 'yellow'
+
         if status:
             return 'green'
-        return 'red'  # Default color for unsatisfied requirements
+        return 'red'
 
     def add_placeholder(self, entry, placeholder):
         entry.insert(0, placeholder)
@@ -225,8 +237,6 @@ class StandardsHelperApp:  # pylint: disable=R0902
         if self.selected_new_file and self.selected_standard:
             self.compare_button.config(state="normal")
 
-        self.display_current_standards()
-
         # Update the currently selected standard label
         if self.currently_selected_label:
             self.currently_selected_label.destroy()
@@ -243,9 +253,25 @@ class StandardsHelperApp:  # pylint: disable=R0902
             self.currently_selected_label_text.set(
                 "Currently selected standard: None")
 
+        # Add the checkbox to show only non-matched standards
+        if self.show_only_non_matched_checkbox:
+            self.show_only_non_matched_checkbox.destroy()
+
+        self.show_only_non_matched_checkbox = tk.Checkbutton(
+            self.helper_inputs_frame, text="Show only non-matched standards",
+            variable=self.show_only_non_matched, font=("Calibri", 11),
+            command=self.show_only_non_matched_standards)
+        self.show_only_non_matched_checkbox.pack(side=tk.RIGHT, padx=50)
+
+        self.display_current_standards()
+
         # Update the requirements tree
         self.obligatory_requirements['Loaded Comparisons file'] = True
         self.populate_tree()
+
+    def show_only_non_matched_standards(self):
+        print(
+            f"Show only non-matched standards: {self.show_only_non_matched.get()}")
 
     def select_new_file(self):
         self.new_file_path = filedialog.askopenfilename(
