@@ -8,11 +8,11 @@ if (-not (Test-Path .venv)) {
 # Activate the virtual environment
 .venv\Scripts\Activate.ps1
 
-# Install pypiwin32 if it doesn't exist
-pip install pypiwin32
-
 # Install the required packages
 pip install -r requirements.txt
+
+# Install pypiwin32
+pip install pypiwin32
 
 # Run the app
 python main.py
