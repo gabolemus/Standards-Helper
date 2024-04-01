@@ -78,5 +78,4 @@ def update_standards(id_value: str, new_id: str, new_text: str, new_level: str,
     except PermissionError:
         print("Please close the file first before updating the standards.")
         return False
-    else:
-        return True
+    return True
