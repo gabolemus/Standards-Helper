@@ -20,6 +20,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.selected_standard = None
         self.new_standards = []
         self.keywords = []
+        self.matches = {}
         self.potential_new_standards = []
 
         # File paths
@@ -81,6 +82,10 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.current_standards_tree = None
 
         self.matching_new_standards_tree = None
+
+        self.more_matches_frame = None
+        self.show_more_matches_button = None
+        self.show_all_matches_button = None
 
     def add_placeholder(self, entry, placeholder):
         entry.insert(0, placeholder)
@@ -146,8 +151,12 @@ class StandardsHelperApp:  # pylint: disable=R0902
         if self.current_standards_tree:
             self.current_standards_tree.destroy()
 
+        tree_frame = tk.Frame(self.master)
+        tree_frame.pack(pady=10)
+
         self.current_standards_tree = ttk.Treeview(
-            self.master, columns=("No.", "Criteria", "Level"), show="headings")
+            tree_frame, columns=("No.", "Criteria", "Level"), show="headings",
+            selectmode="browse")
         self.current_standards_tree.heading("No.", text="No.")
         self.current_standards_tree.heading("Criteria", text="Criteria")
         self.current_standards_tree.heading("Level", text="Level")
@@ -156,7 +165,13 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.current_standards_tree.column(
             "Criteria", width=750, stretch=tk.NO)
         self.current_standards_tree.column("Level", width=100, stretch=tk.NO)
-        self.current_standards_tree.pack(pady=10)
+        self.current_standards_tree.pack(
+            in_=tree_frame, side="left", fill="both", expand=True)
+
+        scrollbar = ttk.Scrollbar(
+            tree_frame, orient="vertical", command=self.current_standards_tree.yview)
+        self.current_standards_tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
 
         for standard in self.current_standards:
             if standard:
@@ -203,18 +218,18 @@ class StandardsHelperApp:  # pylint: disable=R0902
             self.selected_standard = standard
             print(f"Selected standard: {self.selected_standard}")
 
-    def start_comparison(self):
+    def start_comparison(self):  # pylint: disable=R0915
         # Add logic to compare standards and display results
         print("Starting comparison...")
 
         if self.selected_standard:
             curr_std = self.selected_standard[0]
-            matches: Any = {self.selected_standard[0]: {}}
+            self.matches = {self.selected_standard[0]: {}}
             original_standard = next(
                 (std for std in self.current_standards if std["id"] == self.selected_standard[0]), None)
         else:
             curr_std = "Unknown"
-            matches = {}
+            self.matches = {}
             original_standard = None
 
         if original_standard:
@@ -233,7 +248,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
                         weighted_similarity = cosine_sim * cosine_weight + edit_dist * \
                             edit_weight + keyword_proportion * keyword_weight
 
-                        matches[curr_std][new_standard["id"]] = {
+                        self.matches[curr_std][new_standard["id"]] = {
                             "weighted_similarity": round(100 * weighted_similarity, 2),
                             "cosine": cosine_sim,
                             "edit": edit_dist,
@@ -246,25 +261,22 @@ class StandardsHelperApp:  # pylint: disable=R0902
                         weighted_similarity = cosine_sim * cosine_weight + \
                             edit_dist * edit_weight
 
-                        matches[curr_std][new_standard["id"]] = {
+                        self.matches[curr_std][new_standard["id"]] = {
                             "weighted_similarity": round(100 * weighted_similarity, 2),
                             "cosine": cosine_sim,
                             "edit": edit_dist,
                         }
 
-        show_matches(original_standard, matches, curr_std)
+        show_matches(original_standard, self.matches, curr_std)
 
         # Add the matching new standards to self.potential_new_standards
         self.potential_new_standards = []
-        # Filter the new standards with the std_id of the matching standards
-        # But first, create a new list from the new standards sorted by the
-        # weighted similarity
-        sorted_new_standards = sorted(self.new_standards, key=lambda x: matches[curr_std].get(
+        sorted_new_standards = sorted(self.new_standards, key=lambda x: self.matches[curr_std].get(
             x["id"], {}).get("weighted_similarity", 0), reverse=True)
         print(f"Sorted new standards: {len(sorted_new_standards)}")
         print(f"First sorted new standard: {sorted_new_standards[0]}")
         for new_standard in sorted_new_standards:
-            if new_standard["id"] in matches[curr_std]:
+            if new_standard["id"] in self.matches[curr_std]:
                 self.potential_new_standards.append(new_standard)
         print(f"Potential new standards: {len(self.potential_new_standards)}")
         print(
@@ -274,8 +286,11 @@ class StandardsHelperApp:  # pylint: disable=R0902
         if self.matching_new_standards_tree:
             self.matching_new_standards_tree.destroy()
 
+        tree_frame = tk.Frame(self.master)
+        tree_frame.pack(pady=10)
+
         self.matching_new_standards_tree = ttk.Treeview(
-            self.master, columns=("No.", "New Criteria", "Level", "Similarity"), show="headings")
+            tree_frame, columns=("No.", "New Criteria", "Level", "Similarity"), show="headings")
         self.matching_new_standards_tree.heading("No.", text="No.")
         self.matching_new_standards_tree.heading(
             "New Criteria", text="New Criteria")
@@ -290,13 +305,54 @@ class StandardsHelperApp:  # pylint: disable=R0902
             "Level", width=100, stretch=tk.NO)
         self.matching_new_standards_tree.column(
             "Similarity", width=100, stretch=tk.NO)
-        self.matching_new_standards_tree.pack(pady=10)
+        # self.current_standards_tree.pack(
+        #     in_=tree_frame, side="left", fill="both", expand=True)
+        self.matching_new_standards_tree.pack(
+            in_=tree_frame, side="left", fill="both", expand=True)
+
+        scrollbar = ttk.Scrollbar(
+            tree_frame, orient="vertical", command=self.matching_new_standards_tree.yview)
+        self.matching_new_standards_tree.configure(
+            yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
 
         # Initially, show only the top 10 matches
         for new_standard in self.potential_new_standards[:10]:
             self.matching_new_standards_tree.insert("", "end", values=(
                 new_standard["id"], new_standard["text"], new_standard["level"],
-                matches[curr_std].get(new_standard["id"], {}).get("weighted_similarity", 0)))
+                self.matches[curr_std].get(new_standard["id"], {}).get("weighted_similarity", 0)))
+
+        # Add two buttons side by side to show +10 more matches or to show all matches
+        self.more_matches_frame = tk.Frame(self.master)
+        self.more_matches_frame.pack(pady=5)
+
+        self.show_more_matches_button = tk.Button(
+            self.more_matches_frame, text="Show +10 More Matches",
+            command=self.show_more_matches, width=30)
+        self.show_more_matches_button.pack(side=tk.LEFT)
+        self.show_more_matches_button.config(bg="#b3ffb3")
+
+        self.show_all_matches_button = tk.Button(
+            self.more_matches_frame, text="Show All Matches",
+            command=self.show_all_matches, width=30)
+        self.show_all_matches_button.pack(side=tk.LEFT, padx=5)
+        self.show_all_matches_button.config(bg="#b3e6ff")
+
+    def show_more_matches(self):
+        if self.matching_new_standards_tree:
+            for new_standard in self.potential_new_standards[len(self.matching_new_standards_tree.get_children()):len(self.matching_new_standards_tree.get_children()) + 10]:
+                if self.selected_standard:
+                    self.matching_new_standards_tree.insert("", "end", values=(
+                        new_standard["id"], new_standard["text"], new_standard["level"],
+                        self.matches[self.selected_standard[0]].get(new_standard["id"], {}).get("weighted_similarity", 0)))
+
+    def show_all_matches(self):
+        if self.matching_new_standards_tree:
+            for new_standard in self.potential_new_standards:
+                if self.selected_standard:
+                    self.matching_new_standards_tree.insert("", "end", values=(
+                        new_standard["id"], new_standard["text"], new_standard["level"],
+                        self.matches[self.selected_standard[0]].get(new_standard["id"], {}).get("weighted_similarity", 0)))
 
 
 root = tk.Tk()
