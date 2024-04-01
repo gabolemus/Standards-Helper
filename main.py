@@ -10,7 +10,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
     def __init__(self, master):
         self.master = master
-        master.title("Standards Helper App")
+        master.title("Standards Helper")
 
         # State variables
         self.selected_current_file = False
@@ -40,12 +40,22 @@ class StandardsHelperApp:  # pylint: disable=R0902
             command=self.select_current_file, width=30)
         self.current_file_button.pack(side=tk.LEFT)
         self.current_file_button.config(bg="#b3ffb3")
+        self.current_file_button.bind(
+            "<Enter>", lambda event,
+            button=self.current_file_button: self.change_cursor(event, button))
+        self.current_file_button.bind(
+            "<Leave>", lambda _: self.master.config(cursor=""))
 
         self.new_file_button = tk.Button(
             self.file_frame, text="Select Unified Standards File",
             command=self.select_new_file, width=30)
         self.new_file_button.pack(side=tk.LEFT, padx=5)
         self.new_file_button.config(bg="#b3e6ff")
+        self.new_file_button.bind(
+            "<Enter>", lambda event,
+            button=self.new_file_button: self.change_cursor(event, button))
+        self.new_file_button.bind(
+            "<Leave>", lambda _: self.master.config(cursor=""))
 
         self.worksheet_frame = tk.Frame(master)
         self.worksheet_frame.pack(pady=10)
@@ -77,6 +87,11 @@ class StandardsHelperApp:  # pylint: disable=R0902
             state="disabled", width=30)
         self.compare_button.pack(pady=5)
         self.compare_button.config(bg="#b3ffb3")
+        self.compare_button.bind(
+            "<Enter>", lambda event,
+            button=self.compare_button: self.change_cursor(event, button))
+        self.compare_button.bind(
+            "<Leave>", lambda _: self.master.config(cursor=""))
 
         self.current_standards_tree = None
 
@@ -102,6 +117,12 @@ class StandardsHelperApp:  # pylint: disable=R0902
         if entry.get() == "":
             entry.insert(0, placeholder)
             entry.config(fg="gray")
+
+    def change_cursor(self, _, button):
+        if button['state'] == tk.NORMAL:
+            self.master.config(cursor="hand2")
+        else:
+            self.master.config(cursor="")
 
     def select_current_file(self):
         self.current_file_path = filedialog.askopenfilename(
@@ -325,15 +346,25 @@ class StandardsHelperApp:  # pylint: disable=R0902
             command=self.show_more_matches, width=30)
         self.show_more_matches_button.pack(side=tk.LEFT)
         self.show_more_matches_button.config(bg="#b3ffb3")
+        self.show_more_matches_button.bind(
+            "<Enter>", lambda event,
+            button=self.show_more_matches_button: self.change_cursor(event, button))
+        self.show_more_matches_button.bind(
+            "<Leave>", lambda _: self.master.config(cursor=""))
 
         self.show_all_matches_button = tk.Button(
             self.more_matches_frame, text="Show All Matches",
             command=self.show_all_matches, width=30)
         self.show_all_matches_button.pack(side=tk.LEFT, padx=5)
         self.show_all_matches_button.config(bg="#b3e6ff")
+        self.show_all_matches_button.bind(
+            "<Enter>", lambda event,
+            button=self.show_all_matches_button: self.change_cursor(event, button))
+        self.show_all_matches_button.bind(
+            "<Leave>", lambda _: self.master.config(cursor=""))
 
     def show_more_matches(self):
-        if self.matching_new_standards_tree:
+        if self.matching_new_standards_tree and self.show_more_matches_button:
             for new_standard in self.potential_new_standards[len(self.matching_new_standards_tree.get_children()):len(self.matching_new_standards_tree.get_children()) + 10]:
                 if self.selected_standard:
                     self.matching_new_standards_tree.insert("", "end", values=(
@@ -341,14 +372,20 @@ class StandardsHelperApp:  # pylint: disable=R0902
                         self.matches[self.selected_standard[0]].get(
                             new_standard["id"], {}).get("weighted_similarity", 0)))
 
+            if len(self.matching_new_standards_tree.get_children()) == len(self.potential_new_standards):
+                self.show_more_matches_button.config(state="disabled")
+
     def show_all_matches(self):
-        if self.matching_new_standards_tree:
+        if self.matching_new_standards_tree and self.show_all_matches_button and self.show_more_matches_button:
             for new_standard in self.potential_new_standards:
                 if self.selected_standard:
                     self.matching_new_standards_tree.insert("", "end", values=(
                         new_standard["id"], new_standard["text"], new_standard["level"],
                         self.matches[self.selected_standard[0]].get(
                             new_standard["id"], {}).get("weighted_similarity", 0)))
+
+            self.show_more_matches_button.config(state="disabled")
+            self.show_all_matches_button.config(state="disabled")
 
 
 root = tk.Tk()
