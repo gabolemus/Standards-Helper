@@ -134,6 +134,12 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
         self.populate_tree()
 
+        # Frame for the "Current selected requirement" label
+        self.currently_selected_frame = tk.Frame(master)
+        self.currently_selected_frame.pack(pady=10)
+        self.currently_selected_label = None
+        self.currently_selected_label_text = tk.StringVar()
+
         self.current_stds_frame = None
         self.current_standards_tree = None
         self.current_stds_scrollbar = None
@@ -220,6 +226,22 @@ class StandardsHelperApp:  # pylint: disable=R0902
             self.compare_button.config(state="normal")
 
         self.display_current_standards()
+
+        # Update the currently selected standard label
+        if self.currently_selected_label:
+            self.currently_selected_label.destroy()
+
+        self.currently_selected_label = tk.Label(
+            self.currently_selected_frame, textvariable=self.currently_selected_label_text,
+            font=("Calibri", 11))
+        self.currently_selected_label.pack()
+
+        if self.selected_standard:
+            self.currently_selected_label_text.set(
+                f"Currently selected standard: {self.selected_standard[0]}")
+        else:
+            self.currently_selected_label_text.set(
+                "Currently selected standard: None")
 
         # Update the requirements tree
         self.obligatory_requirements['Loaded Comparisons file'] = True
@@ -400,6 +422,19 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
             if self.selected_current_file and self.selected_new_file:
                 self.compare_button.config(state="normal")
+
+        # Update the currently selected standard label
+        if self.currently_selected_label:
+            self.currently_selected_label.destroy()
+
+        self.currently_selected_label = tk.Label(
+            self.currently_selected_frame, textvariable=self.currently_selected_label_text,
+            font=("Calibri", 11))
+        self.currently_selected_label.pack()
+
+        if self.selected_standard:
+            self.currently_selected_label_text.set(
+                f"Currently selected standard: {self.selected_standard[0]}")
 
         # Update the requirements tree
         self.obligatory_requirements['Chosen a standard to compare'] = True
