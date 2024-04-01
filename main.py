@@ -8,7 +8,7 @@ from standards.workbooks import get_new_standards, get_original_standards
 class StandardsHelperApp:  # pylint: disable=R0902
     """Main class for the standards helper app."""
 
-    def __init__(self, master):
+    def __init__(self, master):  # pylint: disable=R0915
         self.master = master
         master.title("Standards Helper")
 
@@ -21,6 +21,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.keywords = []
         self.matches = {}
         self.potential_new_standards = []
+        self.selected_new_standard = None
 
         # File paths
         self.current_file_path = ""
@@ -37,7 +38,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
         self.current_file_button = tk.Button(
             self.file_frame, text="Select Comparison File",
-            command=self.select_current_file, width=30)
+            command=self.select_current_file, width=34, font=("Calibri", 11))
         self.current_file_button.pack(side=tk.LEFT)
         self.current_file_button.config(bg="#b3ffb3")
         self.current_file_button.bind(
@@ -48,7 +49,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
         self.new_file_button = tk.Button(
             self.file_frame, text="Select Unified Standards File",
-            command=self.select_new_file, width=30)
+            command=self.select_new_file, width=34, font=("Calibri", 11))
         self.new_file_button.pack(side=tk.LEFT, padx=5)
         self.new_file_button.config(bg="#b3e6ff")
         self.new_file_button.bind(
@@ -60,23 +61,30 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.worksheet_frame = tk.Frame(master)
         self.worksheet_frame.pack(pady=10)
 
+        self.worksheets_label = tk.Label(
+            self.worksheet_frame, text="Worksheets:", font=("Calibri", 11))
+        self.worksheets_label.pack(pady=5)
+
         self.worksheet_radio_buttons = []
         for i, worksheet in enumerate(self.worksheets):
             radio_button = tk.Radiobutton(self.worksheet_frame, text=worksheet,
                                           variable=self.selected_worksheet_index, value=i,
-                                          state="disabled", command=self.update_current_worksheet)
+                                          state="disabled", command=self.update_current_worksheet,
+                                          font=("Calibri", 11))
             radio_button.pack(side=tk.LEFT)
             self.worksheet_radio_buttons.append(radio_button)
 
-        self.filter_entry = tk.Entry(master, width=70)
-        self.filter_entry.pack(pady=2.5)
+        self.filter_entry = tk.Entry(
+            master, width=70, fg="gray", font=("Calibri", 11))
+        self.filter_entry.pack(pady=5)
         self.filter_entry.bind("<KeyRelease>", lambda _: self.filter_current_standards(
             self.filter_entry.get()))
         self.add_placeholder(
             self.filter_entry, "Enter the name of the criteria or its No.")
 
-        self.keywords_entry = tk.Entry(master, width=70)
-        self.keywords_entry.pack(pady=2.5)
+        self.keywords_entry = tk.Entry(
+            master, width=70, fg="gray", font=("Calibri", 11))
+        self.keywords_entry.pack(pady=5)
         self.keywords_entry.bind("<KeyRelease>", lambda _: self.filter_keywords(
             self.keywords_entry.get()))
         self.add_placeholder(self.keywords_entry,
@@ -84,7 +92,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
         self.compare_button = tk.Button(
             master, text="Start Comparison", command=self.start_comparison,
-            state="disabled", width=30)
+            state="disabled", width=70, font=("Calibri", 11))
         self.compare_button.pack(pady=5)
         self.compare_button.config(bg="#b3ffb3")
         self.compare_button.bind(
@@ -100,6 +108,9 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.more_matches_frame = None
         self.show_more_matches_button = None
         self.show_all_matches_button = None
+
+        self.write_selected_new_standard_button = None
+        self.reset_button = None
 
     def add_placeholder(self, entry, placeholder):
         entry.insert(0, placeholder)
@@ -177,6 +188,11 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.current_standards_tree = ttk.Treeview(
             tree_frame, columns=("No.", "Criteria", "Level"), show="headings",
             selectmode="browse")
+
+        style = ttk.Style()
+        style.configure("Treeview", font=("Calibri", 11))
+        style.configure("Treeview.Heading", font=("Calibri", 11, "bold"))
+
         self.current_standards_tree.heading("No.", text="No.")
         self.current_standards_tree.heading("Criteria", text="Criteria")
         self.current_standards_tree.heading("Level", text="Level")
@@ -343,8 +359,8 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
         self.show_more_matches_button = tk.Button(
             self.more_matches_frame, text="Show +10 More Matches",
-            command=self.show_more_matches, width=30)
-        self.show_more_matches_button.pack(side=tk.LEFT)
+            command=self.show_more_matches, width=30, font=("Calibri", 11))
+        self.show_more_matches_button.pack(side=tk.LEFT, padx=5)
         self.show_more_matches_button.config(bg="#b3ffb3")
         self.show_more_matches_button.bind(
             "<Enter>", lambda event,
@@ -354,7 +370,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
         self.show_all_matches_button = tk.Button(
             self.more_matches_frame, text="Show All Matches",
-            command=self.show_all_matches, width=30)
+            command=self.show_all_matches, width=30, font=("Calibri", 11))
         self.show_all_matches_button.pack(side=tk.LEFT, padx=5)
         self.show_all_matches_button.config(bg="#b3e6ff")
         self.show_all_matches_button.bind(
@@ -362,6 +378,38 @@ class StandardsHelperApp:  # pylint: disable=R0902
             button=self.show_all_matches_button: self.change_cursor(event, button))
         self.show_all_matches_button.bind(
             "<Leave>", lambda _: self.master.config(cursor=""))
+
+        # Button that writes the selected_new_standard to the Excel file
+        self.write_selected_new_standard_button = tk.Button(
+            self.master, text="Write Selected New Standard",
+            command=self.write_selected_new_standard, width=63, font=("Calibri", 11))
+        self.write_selected_new_standard_button.pack(pady=5)
+        self.write_selected_new_standard_button.config(bg="#ff9999")
+        self.write_selected_new_standard_button.bind(
+            "<Enter>", lambda event,
+            button=self.write_selected_new_standard_button: self.change_cursor(event, button))
+        self.write_selected_new_standard_button.bind(
+            "<Leave>", lambda _: self.master.config(cursor=""))
+        self.write_selected_new_standard_button.config(state="disabled")
+
+        # Button that resets the app without unloading the files
+        self.reset_button = tk.Button(
+            self.master, text="Reset Comparisons", command=self.reset_state, width=63, font=("Calibri", 11))
+        self.reset_button.pack(pady=5)
+        self.reset_button.config(bg="#ff9999")
+        self.reset_button.bind(
+            "<Enter>", lambda event,
+            button=self.reset_button: self.change_cursor(event, button))
+        self.reset_button.bind(
+            "<Leave>", lambda _: self.master.config(cursor=""))
+
+    def write_selected_new_standard(self):
+        if self.selected_new_standard:
+            print(
+                f"Selected new standard to the Excel file: {self.selected_new_standard}")
+
+    def reset_state(self):
+        pass
 
     def show_more_matches(self):
         if self.matching_new_standards_tree and self.show_more_matches_button:
