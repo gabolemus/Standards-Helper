@@ -17,6 +17,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.selected_current_file = False
         self.selected_new_file = False
         self.current_standards = []
+        self.filtered_standards = []
         self.selected_standard = None
         self.new_standards = []
         self.keywords = []
@@ -105,6 +106,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.current_stds_frame = None
         self.current_standards_tree = None
         self.current_stds_scrollbar = None
+        self.process_next_std_button = None
 
         self.new_stds_frame = None
         self.matching_new_standards_tree = None
@@ -232,10 +234,28 @@ class StandardsHelperApp:  # pylint: disable=R0902
         print(
             f"Updated current standards. Length: {len(self.current_standards)}")
 
+    def process_next_standard(self):
+        if self.filtered_standards and self.current_standards_tree:
+            self.filtered_standards.pop(0)
+
+            if self.current_standards_tree:
+                self.current_standards_tree.delete(
+                    self.current_standards_tree.get_children()[0])
+
+            if self.filtered_standards:
+                self.current_standards_tree.selection_set(
+                    self.current_standards_tree.get_children()[0])
+                self.selected_standard = self.current_standards_tree.item(
+                    self.current_standards_tree.get_children()[0])["values"]
+                self.start_comparison()
+            else:
+                self.show_popup(
+                    "End of List", "You have reached the end of the list.")
+
     def filter_current_standards(self, criteria):
-        filtered_standards = []
+        self.filtered_standards = []
         if criteria == "":  # If the entry is empty, show all standards
-            filtered_standards = self.current_standards
+            self.filtered_standards = self.current_standards
         else:
             for standard in self.current_standards:
                 if standard and standard["text"] and standard["id"]:
@@ -243,7 +263,12 @@ class StandardsHelperApp:  # pylint: disable=R0902
                             criteria in standard["id"].lower() or \
                         standard["text"].lower().startswith(criteria.lower()) or \
                             criteria in standard["text"].lower():
-                        filtered_standards.append(standard)
+                        self.filtered_standards.append(standard)
+
+        # Enable the process_next_std_button if there are more than 1 standards
+        if len(self.filtered_standards) > 1:
+            if self.process_next_std_button:
+                self.process_next_std_button.config(state="normal")
 
         # Clear the Treeview
         if self.current_standards_tree:
@@ -251,7 +276,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
                 self.current_standards_tree.delete(item)
 
             # Populate the Treeview with filtered standards
-            for standard in filtered_standards:
+            for standard in self.filtered_standards:
                 self.current_standards_tree.insert("", "end", values=(
                     standard["id"], standard["text"], standard["level"]))
 
@@ -337,6 +362,23 @@ class StandardsHelperApp:  # pylint: disable=R0902
         print(f"Potential new standards: {len(self.potential_new_standards)}")
         print(
             f"First potential new standard: {self.potential_new_standards[0]}")
+
+        if self.process_next_std_button:
+            self.process_next_std_button.destroy()
+
+        self.process_next_std_button = tk.Button(
+            self.master, text="Process Next Standard (>>>)", command=self.process_next_standard,
+            width=63, font=("Calibri", 11))
+        self.process_next_std_button.pack(pady=5)
+        self.process_next_std_button.config(bg="#b3ffb3")
+        self.process_next_std_button.bind(
+            "<Enter>", lambda event,
+            button=self.process_next_std_button: self.change_cursor(event, button))
+        self.process_next_std_button.bind(
+            "<Leave>", lambda _: self.master.config(cursor=""))
+
+        if len(self.filtered_standards) == 1:
+            self.process_next_std_button.config(state="disabled")
 
         # Display the matching new standards in a Treeview
         if self.matching_new_standards_tree:
