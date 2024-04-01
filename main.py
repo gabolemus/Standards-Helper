@@ -36,7 +36,12 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.selected_worksheet_index = tk.IntVar(value=-1)
 
         # UI Elements
-        self.file_frame = tk.Frame(master)
+        self.central_frame = tk.Frame(master)
+        self.central_frame.pack()
+        self.left_frame = tk.Frame(self.central_frame)
+        self.left_frame.pack(side=tk.LEFT, padx=10)
+
+        self.file_frame = tk.Frame(self.left_frame)
         self.file_frame.pack()
 
         self.current_file_button = tk.Button(
@@ -61,7 +66,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.new_file_button.bind(
             "<Leave>", lambda _: self.master.config(cursor=""))
 
-        self.worksheet_frame = tk.Frame(master)
+        self.worksheet_frame = tk.Frame(self.left_frame)
         self.worksheet_frame.pack(pady=10)
 
         self.worksheets_label = tk.Label(
@@ -78,7 +83,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
             self.worksheet_radio_buttons.append(radio_button)
 
         self.filter_entry = tk.Entry(
-            master, width=70, fg="gray", font=("Calibri", 11))
+            self.left_frame, width=70, fg="gray", font=("Calibri", 11))
         self.filter_entry.pack(pady=5)
         self.filter_entry.bind("<KeyRelease>", lambda _: self.filter_current_standards(
             self.filter_entry.get()))
@@ -86,7 +91,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
             self.filter_entry, "Enter the name of the criteria or its No.")
 
         self.keywords_entry = tk.Entry(
-            master, width=70, fg="gray", font=("Calibri", 11))
+            self.left_frame, width=70, fg="gray", font=("Calibri", 11))
         self.keywords_entry.pack(pady=5)
         self.keywords_entry.bind("<KeyRelease>", lambda _: self.filter_keywords(
             self.keywords_entry.get()))
@@ -94,7 +99,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
                              "Enter keywords separated by commas")
 
         self.compare_button = tk.Button(
-            master, text="Start Comparison", command=self.start_comparison,
+            self.left_frame, text="Start Comparison", command=self.start_comparison,
             state="disabled", width=70, font=("Calibri", 11))
         self.compare_button.pack(pady=5)
         self.compare_button.config(bg="#b3ffb3")
@@ -103,6 +108,31 @@ class StandardsHelperApp:  # pylint: disable=R0902
             button=self.compare_button: self.change_cursor(event, button))
         self.compare_button.bind(
             "<Leave>", lambda _: self.master.config(cursor=""))
+
+        self.right_frame = tk.Frame(self.central_frame)
+        self.right_frame.pack(side=tk.RIGHT, padx=10)
+
+        self.program_requirements = ttk.Treeview(
+            self.right_frame, columns=("Status"), show="headings")
+        self.program_requirements.heading("#0", text="Program Requirements")
+        self.program_requirements.heading("Status", text="Status")
+        self.program_requirements.column("Status", width=325, stretch=tk.NO)
+        self.program_requirements.pack(fill="both", expand=True)
+        self.program_requirements.bind("<Button-1>", lambda _: "break")
+
+        # Define requirements
+        self.obligatory_requirements = {
+            'Loaded Comparisons file': False,
+            'Loaded Unified Standards file': False,
+            'Chosen a standard to compare': False
+        }
+
+        self.optional_requirements = {
+            'Entered criteria name/No.': False,
+            'Entered keyword(s)': False
+        }
+
+        self.populate_tree()
 
         self.current_stds_frame = None
         self.current_standards_tree = None
@@ -120,6 +150,36 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
         self.write_selected_new_standard_button = None
         self.reset_button = None
+
+    def populate_tree(self):
+        # If the tree has items in it, clear them
+        for item in self.program_requirements.get_children():
+            self.program_requirements.delete(item)
+
+        # Insert obligatory requirements into the requirements tree
+        self.program_requirements.insert(
+            "", "end", values=("Obligatory Requirements", ""))
+        for requirement, status in self.obligatory_requirements.items():
+            self.program_requirements.insert(
+                "", "end", values=(requirement, status), tags=(self.get_status_color(status),))
+
+        # Insert optional requirements into the requirements tree
+        self.program_requirements.insert(
+            "", "end", values=("", ""))
+        self.program_requirements.insert(
+            "", "end", values=("Optional Requirements", ""))
+        for requirement, status in self.optional_requirements.items():
+            self.program_requirements.insert(
+                "", "end", values=(requirement, status), tags=(self.get_status_color(status),))
+
+        # Color the requirements tree with the appropriate colors
+        self.program_requirements.tag_configure('green', background='#b3ffb3')
+        self.program_requirements.tag_configure('red', background='#ff9999')
+
+    def get_status_color(self, status):
+        if status:
+            return 'green'
+        return 'red'  # Default color for unsatisfied requirements
 
     def add_placeholder(self, entry, placeholder):
         entry.insert(0, placeholder)
@@ -156,10 +216,14 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.current_file_button.config(state="disabled")
         self.selected_current_file = True
 
-        if self.selected_new_file:
+        if self.selected_new_file and self.selected_standard:
             self.compare_button.config(state="normal")
 
         self.display_current_standards()
+
+        # Update the requirements tree
+        self.obligatory_requirements['Loaded Comparisons file'] = True
+        self.populate_tree()
 
     def select_new_file(self):
         self.new_file_path = filedialog.askopenfilename(
@@ -167,11 +231,15 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.new_file_button.config(state="disabled")
         self.selected_new_file = True
 
-        if self.selected_current_file:
+        if self.selected_current_file and self.selected_standard:
             self.compare_button.config(state="normal")
 
         self.new_standards = get_new_standards(self.new_file_path)
         print(f"New standards: {len(self.new_standards)}")
+
+        # Update the requirements tree
+        self.obligatory_requirements['Loaded Unified Standards file'] = True
+        self.populate_tree()
 
     def update_current_worksheet(self):
         index = self.selected_worksheet_index.get()
@@ -268,7 +336,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
                         self.filtered_standards.append(standard)
 
         # Enable the process_next_std_button if there are more than 1 standards
-        if len(self.filtered_standards) > 1:
+        if len(self.filtered_standards) > 1 and self.process_next_std_button:
             if self.process_next_std_button:
                 self.process_next_std_button.config(state="normal")
 
@@ -281,6 +349,11 @@ class StandardsHelperApp:  # pylint: disable=R0902
             for standard in self.filtered_standards:
                 self.current_standards_tree.insert("", "end", values=(
                     standard["id"], standard["text"], standard["level"]))
+
+        # Update the requirements tree
+        self.optional_requirements['Entered criteria name/No.'] = bool(
+            criteria)
+        self.populate_tree()
 
     def filter_new_standards(self, criteria):
         # This function filters the new standards based on the criteria entered
@@ -314,12 +387,23 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.keywords = [kw.strip() for kw in keywords_input.split(
             ",") if kw.strip()] if keywords_input else []
 
+        # Update the requirements tree
+        self.optional_requirements['Entered keyword(s)'] = bool(self.keywords)
+        self.populate_tree()
+
     def on_treeview_select(self, _):
         if self.current_standards_tree:
             item = self.current_standards_tree.selection()[0]
             standard = self.current_standards_tree.item(item)["values"]
             self.selected_standard = standard
             print(f"Selected standard: {self.selected_standard}")
+
+            if self.selected_current_file and self.selected_new_file:
+                self.compare_button.config(state="normal")
+
+        # Update the requirements tree
+        self.obligatory_requirements['Chosen a standard to compare'] = True
+        self.populate_tree()
 
     def on_matching_treeview_select(self, _):
         if self.matching_new_standards_tree:
@@ -398,7 +482,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
         self.process_next_std_button = tk.Button(
             self.master, text="Process Next Standard (>>>)", command=self.process_next_standard,
-            width=63, font=("Calibri", 11))
+            width=114, font=("Calibri", 11))
         self.process_next_std_button.pack(pady=5)
         self.process_next_std_button.config(bg="#b3ffb3")
         self.process_next_std_button.bind(
@@ -429,7 +513,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
             self.filter_new_stds_entry.destroy()
 
         self.filter_new_stds_entry = tk.Entry(
-            self.master, width=70, fg="gray", font=("Calibri", 11))
+            self.master, width=114, fg="gray", font=("Calibri", 11))
         self.filter_new_stds_entry.pack(pady=5)
         self.filter_new_stds_entry.bind("<KeyRelease>", lambda _: self.filter_new_standards(
             self.filter_new_stds_entry.get()))
@@ -553,7 +637,67 @@ class StandardsHelperApp:  # pylint: disable=R0902
                     "Error", f"An error occurred: {e}")
 
     def reset_state(self):
-        pass
+        # Clear the content of the ID/Name Entry
+        if self.filter_entry:
+            self.filter_entry.delete(0, tk.END)
+            self.filter_entry.insert(
+                0, "Enter the name of the criteria or its No.")
+            self.filter_entry.config(fg="gray")
+
+        # Clear the content of the Keywords Entry
+        if self.keywords_entry:
+            self.keywords_entry.delete(0, tk.END)
+            self.keywords_entry.insert(0, "Enter keywords separated by commas")
+            self.keywords_entry.config(fg="gray")
+
+        # Reset the checkboxes
+        for checkbox in self.worksheet_radio_buttons:
+            checkbox.config(state="normal")
+
+        self.selected_worksheet_index.set(0)
+        self.current_worksheet = self.worksheets[0]
+        self.current_file_button.config(state="disabled")
+        self.selected_current_file = True
+
+        self.display_current_standards()
+
+        self.selected_standard = None
+
+        # Update the requirements tree
+        self.obligatory_requirements['Chosen a standard to compare'] = False
+        self.optional_requirements['Entered criteria name/No.'] = False
+        self.optional_requirements['Entered keyword(s)'] = False
+        self.populate_tree()
+
+        # Disable the start comparison button
+        if self.compare_button:
+            self.compare_button.config(state="disabled")
+
+        # Remove the elements that were created during the comparison
+        if self.process_next_std_button:
+            self.process_next_std_button.destroy()
+            self.process_next_std_button = None
+
+        if self.matching_new_standards_tree:
+            self.matching_new_standards_tree.destroy()
+
+        if self.more_matches_frame:
+            self.more_matches_frame.destroy()
+
+        if self.new_stds_frame:
+            self.new_stds_frame.destroy()
+
+        if self.new_stds_scrollbar:
+            self.new_stds_scrollbar.destroy()
+
+        if self.filter_new_stds_entry:
+            self.filter_new_stds_entry.destroy()
+
+        if self.write_selected_new_standard_button:
+            self.write_selected_new_standard_button.destroy()
+
+        if self.reset_button:
+            self.reset_button.destroy()
 
     def show_more_matches(self):
         if self.matching_new_standards_tree and self.show_more_matches_button:
