@@ -687,15 +687,15 @@ class StandardsHelperApp:  # pylint: disable=R0902
         if self.selected_new_standard:
             standard = self.selected_new_standard
             # Update the Excel file with the selected new standard
-            try:
-                if self.selected_standard and self.current_worksheet and standard:
-                    update_standards(
-                        self.selected_standard[0], standard[0], standard[1], standard[2], self.current_worksheet)
+            if self.selected_standard and self.current_worksheet and standard:
+                success = update_standards(
+                    self.selected_standard[0], standard[0], standard[1], standard[2], self.current_worksheet)
+                if success:
                     self.show_popup(
                         "Success", "The Excel file has been updated successfully.")
-            except Exception as e:
-                self.show_popup(
-                    "Error", f"An error occurred: {e}")
+                else:
+                    self.show_popup(
+                        "Error", "An error occurred while updating the Excel file.\nPlease make sure the file is not open.")
 
     def reset_state(self):
         # Clear the content of the ID/Name Entry
