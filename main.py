@@ -2,7 +2,8 @@ import tkinter as tk
 from tkinter import filedialog, ttk
 
 from standards.inputs import get_text_comparisons, show_matches
-from standards.workbooks import get_new_standards, get_original_standards
+from standards.workbooks import (get_new_standards, get_original_standards,
+                                 update_standards)
 
 
 class StandardsHelperApp:  # pylint: disable=R0902
@@ -101,9 +102,13 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.compare_button.bind(
             "<Leave>", lambda _: self.master.config(cursor=""))
 
+        self.current_stds_frame = None
         self.current_standards_tree = None
+        self.current_stds_scrollbar = None
 
+        self.new_stds_frame = None
         self.matching_new_standards_tree = None
+        self.new_stds_scrollbar = None
 
         self.more_matches_frame = None
         self.show_more_matches_button = None
@@ -182,11 +187,17 @@ class StandardsHelperApp:  # pylint: disable=R0902
         if self.current_standards_tree:
             self.current_standards_tree.destroy()
 
-        tree_frame = tk.Frame(self.master)
-        tree_frame.pack(pady=10)
+        if self.current_stds_frame:
+            self.current_stds_frame.destroy()
+
+        if self.current_stds_scrollbar:
+            self.current_stds_scrollbar.destroy()
+
+        self.current_stds_frame = tk.Frame(self.master)
+        self.current_stds_frame.pack(pady=10)
 
         self.current_standards_tree = ttk.Treeview(
-            tree_frame, columns=("No.", "Criteria", "Level"), show="headings",
+            self.current_stds_frame, columns=("No.", "Criteria", "Level"), show="headings",
             selectmode="browse")
 
         style = ttk.Style()
@@ -202,12 +213,13 @@ class StandardsHelperApp:  # pylint: disable=R0902
             "Criteria", width=750, stretch=tk.NO)
         self.current_standards_tree.column("Level", width=100, stretch=tk.NO)
         self.current_standards_tree.pack(
-            in_=tree_frame, side="left", fill="both", expand=True)
+            in_=self.current_stds_frame, side="left", fill="both", expand=True)
 
-        scrollbar = ttk.Scrollbar(
-            tree_frame, orient="vertical", command=self.current_standards_tree.yview)
-        self.current_standards_tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
+        self.current_stds_scrollbar = ttk.Scrollbar(
+            self.current_stds_frame, orient="vertical", command=self.current_standards_tree.yview)
+        self.current_standards_tree.configure(
+            yscrollcommand=self.current_stds_scrollbar.set)
+        self.current_stds_scrollbar.pack(side="right", fill="y")
 
         for standard in self.current_standards:
             if standard:
@@ -253,6 +265,25 @@ class StandardsHelperApp:  # pylint: disable=R0902
             standard = self.current_standards_tree.item(item)["values"]
             self.selected_standard = standard
             print(f"Selected standard: {self.selected_standard}")
+
+    def on_matching_treeview_select(self, _):
+        if self.matching_new_standards_tree:
+            item = self.matching_new_standards_tree.selection()[0]
+            standard = self.matching_new_standards_tree.item(item)["values"]
+            self.selected_new_standard = standard
+            print(f"\nSelected new standard: {self.selected_new_standard}")
+            print(f"Selected standard: {self.selected_standard}\n")
+
+        if self.write_selected_new_standard_button:
+            self.write_selected_new_standard_button.config(state="normal")
+
+        # Update the Excel file with the selected new standard
+        try:
+            if self.selected_standard and self.current_worksheet and standard:
+                update_standards(
+                    self.selected_standard[0], standard[0], standard[1], standard[2], self.current_worksheet)
+        except Exception as e:
+            print(f"Error updating the Excel file: {e}")
 
     def start_comparison(self):  # pylint: disable=R0915
         if self.selected_standard:
@@ -319,11 +350,21 @@ class StandardsHelperApp:  # pylint: disable=R0902
         if self.matching_new_standards_tree:
             self.matching_new_standards_tree.destroy()
 
-        tree_frame = tk.Frame(self.master)
-        tree_frame.pack(pady=10)
+        # Destroy the previous frame and scrollbar if they exist
+        if self.more_matches_frame:
+            self.more_matches_frame.destroy()
+
+        if self.new_stds_frame:
+            self.new_stds_frame.destroy()
+
+        if self.new_stds_scrollbar:
+            self.new_stds_scrollbar.destroy()
+
+        self.new_stds_frame = tk.Frame(self.master)
+        self.new_stds_frame.pack(pady=10)
 
         self.matching_new_standards_tree = ttk.Treeview(
-            tree_frame, columns=("No.", "New Criteria", "Level", "Similarity"), show="headings")
+            self.new_stds_frame, columns=("No.", "New Criteria", "Level", "Similarity"), show="headings")
         self.matching_new_standards_tree.heading("No.", text="No.")
         self.matching_new_standards_tree.heading(
             "New Criteria", text="New Criteria")
@@ -339,13 +380,16 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.matching_new_standards_tree.column(
             "Similarity", width=100, stretch=tk.NO)
         self.matching_new_standards_tree.pack(
-            in_=tree_frame, side="left", fill="both", expand=True)
+            in_=self.new_stds_frame, side="left", fill="both", expand=True)
 
-        scrollbar = ttk.Scrollbar(
-            tree_frame, orient="vertical", command=self.matching_new_standards_tree.yview)
+        self.new_stds_scrollbar = ttk.Scrollbar(
+            self.new_stds_frame, orient="vertical", command=self.matching_new_standards_tree.yview)
         self.matching_new_standards_tree.configure(
-            yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
+            yscrollcommand=self.new_stds_scrollbar.set)
+        self.new_stds_scrollbar.pack(side="right", fill="y")
+
+        self.matching_new_standards_tree.bind(
+            "<ButtonRelease-1>", self.on_matching_treeview_select)
 
         # Initially, show only the top 10 matches
         for new_standard in self.potential_new_standards[:10]:
@@ -354,8 +398,14 @@ class StandardsHelperApp:  # pylint: disable=R0902
                 self.matches[curr_std].get(new_standard["id"], {}).get("weighted_similarity", 0)))
 
         # Add two buttons side by side to show +10 more matches or to show all matches
+        if self.more_matches_frame:
+            self.more_matches_frame.destroy()
+
         self.more_matches_frame = tk.Frame(self.master)
         self.more_matches_frame.pack(pady=5)
+
+        if self.show_more_matches_button:
+            self.show_more_matches_button.destroy()
 
         self.show_more_matches_button = tk.Button(
             self.more_matches_frame, text="Show +10 More Matches",
@@ -368,6 +418,9 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.show_more_matches_button.bind(
             "<Leave>", lambda _: self.master.config(cursor=""))
 
+        if self.show_all_matches_button:
+            self.show_all_matches_button.destroy()
+
         self.show_all_matches_button = tk.Button(
             self.more_matches_frame, text="Show All Matches",
             command=self.show_all_matches, width=30, font=("Calibri", 11))
@@ -378,6 +431,9 @@ class StandardsHelperApp:  # pylint: disable=R0902
             button=self.show_all_matches_button: self.change_cursor(event, button))
         self.show_all_matches_button.bind(
             "<Leave>", lambda _: self.master.config(cursor=""))
+
+        if self.write_selected_new_standard_button:
+            self.write_selected_new_standard_button.destroy()
 
         # Button that writes the selected_new_standard to the Excel file
         self.write_selected_new_standard_button = tk.Button(
@@ -391,6 +447,9 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.write_selected_new_standard_button.bind(
             "<Leave>", lambda _: self.master.config(cursor=""))
         self.write_selected_new_standard_button.config(state="disabled")
+
+        if self.reset_button:
+            self.reset_button.destroy()
 
         # Button that resets the app without unloading the files
         self.reset_button = tk.Button(
