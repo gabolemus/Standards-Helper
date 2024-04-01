@@ -17,4 +17,4 @@ if (pip show pypiwin32 -q) {
 pip install -r requirements.txt
 
 # Run the app
-python app.py
+python main.py
