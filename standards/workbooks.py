@@ -1,11 +1,18 @@
 """Module with the functions to work with the worksheets."""
 
 import re
-from typing import Union
+from typing import Any, Union
 
 from openpyxl import load_workbook
 
 import standards.config as cfg
+
+
+def is_standard_compared(standard: Any) -> bool:
+    """Check if the standard has already been compared.
+    A compared standard has the cells 6, 7 and 8 filled (columns F, G and H).
+    """
+    return standard[4] is not None and standard[5] is not None and standard[6] is not None
 
 
 def get_original_standards(path: str, worksheet: str) -> list[dict[str, Union[str, None]]]:
@@ -14,7 +21,7 @@ def get_original_standards(path: str, worksheet: str) -> list[dict[str, Union[st
     original_worksheet = original_workbook[cfg.original_standards_ws[cfg.get_worksheet_index(
         worksheet)]]
     original_rows = original_worksheet.iter_rows(
-        min_row=4, min_col=2, max_col=4, values_only=True)
+        min_row=4, min_col=2, max_col=8, values_only=True)
 
     original_standards: list[dict[str, Union[str, None]]] = []
     for row in original_rows:
@@ -24,7 +31,8 @@ def get_original_standards(path: str, worksheet: str) -> list[dict[str, Union[st
             standard = {
                 "id": row[0],
                 "text": row[1],
-                "level": row[2] if row[2] else None
+                "level": row[2] if row[2] else None,
+                "completed": is_standard_compared(row)
             }
             original_standards.append(standard)
 
@@ -53,7 +61,7 @@ def get_new_standards(path: str) -> list[dict[str, Union[str, None]]]:
 
 def update_standards(id_value: str, new_id: str, new_text: str, new_level: str,
                      worksheet_name: str
-                     ) -> None:
+                     ) -> bool:
     """Update the standards with new values."""
     workbook = load_workbook(cfg.original_standards_file)
     worksheet = workbook[worksheet_name]
@@ -66,7 +74,7 @@ def update_standards(id_value: str, new_id: str, new_text: str, new_level: str,
             break
 
     if not row_number:
-        return
+        return False
 
     # Update the values in the row.
     worksheet[f"F{row_number}"] = new_id
@@ -77,4 +85,16 @@ def update_standards(id_value: str, new_id: str, new_text: str, new_level: str,
         workbook.save(cfg.original_standards_file)
     except PermissionError:
         print("Please close the file first before updating the standards.")
-        return
+        return False
+    return True
+
+
+def get_cell_number_from_value(value, workbook_name=cfg.new_standards_file):
+    workbook = load_workbook(workbook_name)
+    worksheet = workbook.active
+
+    for row in worksheet.iter_rows(min_row=4, min_col=1, max_col=1):
+        if row[0].value == value:
+            return row[0].row, row[0].coordinate.replace("A", "B")
+
+    return None
