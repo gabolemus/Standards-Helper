@@ -1,9 +1,11 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+import win32com.client
+
 from standards.inputs import get_text_comparisons, show_matches
-from standards.workbooks import (get_new_standards, get_original_standards,
-                                 update_standards)
+from standards.workbooks import (get_cell_number_from_value, get_new_standards,
+                                 get_original_standards, update_standards)
 
 
 class StandardsHelperApp:  # pylint: disable=R0902
@@ -134,6 +136,17 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
         self.populate_tree()
 
+        self.helper_inputs_frame = tk.Frame(master)
+        self.helper_inputs_frame.pack(pady=10)
+
+        self.currently_selected_frame = tk.Frame(self.helper_inputs_frame)
+        self.currently_selected_frame.pack(side=tk.LEFT, padx=50)
+        self.currently_selected_label = None
+        self.currently_selected_label_text = tk.StringVar()
+
+        self.show_only_non_matched = tk.IntVar(value=0)
+        self.show_only_non_completed_standards = None
+
         self.current_stds_frame = None
         self.current_standards_tree = None
         self.current_stds_scrollbar = None
@@ -148,7 +161,9 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.show_more_matches_button = None
         self.show_all_matches_button = None
 
+        self.file_buttons_frame = None
         self.write_selected_new_standard_button = None
+        self.open_selected_new_standard_button = None
         self.reset_button = None
 
     def populate_tree(self):
@@ -170,16 +185,23 @@ class StandardsHelperApp:  # pylint: disable=R0902
             "", "end", values=("Optional Requirements", ""))
         for requirement, status in self.optional_requirements.items():
             self.program_requirements.insert(
-                "", "end", values=(requirement, status), tags=(self.get_status_color(status),))
+                "", "end", values=(requirement, status),
+                tags=(self.get_status_color(status, True),))
 
         # Color the requirements tree with the appropriate colors
         self.program_requirements.tag_configure('green', background='#b3ffb3')
+        self.program_requirements.tag_configure('yellow', background='#ffffb3')
         self.program_requirements.tag_configure('red', background='#ff9999')
 
-    def get_status_color(self, status):
+    def get_status_color(self, status, is_optional=False):
+        if is_optional:
+            if status:
+                return 'green'
+            return 'yellow'
+
         if status:
             return 'green'
-        return 'red'  # Default color for unsatisfied requirements
+        return 'red'
 
     def add_placeholder(self, entry, placeholder):
         entry.insert(0, placeholder)
@@ -219,11 +241,66 @@ class StandardsHelperApp:  # pylint: disable=R0902
         if self.selected_new_file and self.selected_standard:
             self.compare_button.config(state="normal")
 
+        # Update the currently selected standard label
+        if self.currently_selected_label:
+            self.currently_selected_label.destroy()
+
+        self.currently_selected_label = tk.Label(
+            self.currently_selected_frame, textvariable=self.currently_selected_label_text,
+            font=("Calibri", 11))
+        self.currently_selected_label.pack()
+
+        if self.selected_standard:
+            self.currently_selected_label_text.set(
+                f"Currently selected standard: {self.selected_standard[0]}")
+        else:
+            self.currently_selected_label_text.set(
+                "Currently selected standard: None")
+
+        # Add the checkbox to show only non-matched standards
+        if self.show_only_non_completed_standards:
+            self.show_only_non_completed_standards.destroy()
+
+        self.show_only_non_completed_standards = tk.Checkbutton(
+            self.helper_inputs_frame, text="Show only non-complete standards",
+            variable=self.show_only_non_matched, font=("Calibri", 11),
+            command=self.show_only_non_complete_standards)
+        self.show_only_non_completed_standards.pack(side=tk.RIGHT, padx=50)
+
         self.display_current_standards()
 
         # Update the requirements tree
         self.obligatory_requirements['Loaded Comparisons file'] = True
         self.populate_tree()
+
+    def show_only_non_complete_standards(self):
+        if self.show_only_non_matched.get():
+            self.filtered_standards = [
+                std for std in self.current_standards if not std["completed"]]
+        else:
+            self.filtered_standards = self.current_standards
+
+        if self.current_standards_tree:
+            for item in self.current_standards_tree.get_children():
+                self.current_standards_tree.delete(item)
+
+            for standard in self.filtered_standards:
+                self.current_standards_tree.insert("", "end", values=(
+                    standard["id"], standard["text"], standard["level"],
+                    "✓" if standard["completed"] else "✗"))
+
+        # Delete the text from the filters entry
+        self.filter_entry.delete(0, tk.END)
+        self.filter_entry.insert(
+            0, "Enter the name of the criteria or its No.")
+        self.filter_entry.config(fg="gray")
+        self.keywords_entry.delete(0, tk.END)
+        self.keywords_entry.insert(
+            0, "Enter keywords separated by commas")
+        self.keywords_entry.config(fg="gray")
+
+        # Reset the selected standard
+        self.selected_standard = None
 
     def select_new_file(self):
         self.new_file_path = filedialog.askopenfilename(
@@ -235,7 +312,6 @@ class StandardsHelperApp:  # pylint: disable=R0902
             self.compare_button.config(state="normal")
 
         self.new_standards = get_new_standards(self.new_file_path)
-        print(f"New standards: {len(self.new_standards)}")
 
         # Update the requirements tree
         self.obligatory_requirements['Loaded Unified Standards file'] = True
@@ -269,7 +345,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.current_stds_frame.pack(pady=10)
 
         self.current_standards_tree = ttk.Treeview(
-            self.current_stds_frame, columns=("No.", "Criteria", "Level"), show="headings",
+            self.current_stds_frame, columns=("No.", "Criteria", "Level", "Completed"), show="headings",
             selectmode="browse")
 
         style = ttk.Style()
@@ -279,11 +355,14 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.current_standards_tree.heading("No.", text="No.")
         self.current_standards_tree.heading("Criteria", text="Criteria")
         self.current_standards_tree.heading("Level", text="Level")
+        self.current_standards_tree.heading("Completed", text="Completed")
         self.current_standards_tree.column("#0", width=0, stretch=tk.NO)
         self.current_standards_tree.column("No.", width=50, stretch=tk.NO)
         self.current_standards_tree.column(
             "Criteria", width=750, stretch=tk.NO)
         self.current_standards_tree.column("Level", width=100, stretch=tk.NO)
+        self.current_standards_tree.column(
+            "Completed", width=100, stretch=tk.NO)
         self.current_standards_tree.pack(
             in_=self.current_stds_frame, side="left", fill="both", expand=True)
 
@@ -296,13 +375,11 @@ class StandardsHelperApp:  # pylint: disable=R0902
         for standard in self.current_standards:
             if standard:
                 self.current_standards_tree.insert("", "end", values=(
-                    standard["id"], standard["text"], standard["level"]))
+                    standard["id"], standard["text"], standard["level"],
+                    "✓" if standard["completed"] else "✗"))
 
         self.current_standards_tree.bind(
             "<ButtonRelease-1>", self.on_treeview_select)
-
-        print(
-            f"Updated current standards. Length: {len(self.current_standards)}")
 
     def process_next_standard(self):
         if self.filtered_standards and self.current_standards_tree:
@@ -335,6 +412,11 @@ class StandardsHelperApp:  # pylint: disable=R0902
                             criteria in standard["text"].lower():
                         self.filtered_standards.append(standard)
 
+        # Check if only the non-completed standards should be shown
+        if self.show_only_non_matched.get():
+            self.filtered_standards = [
+                std for std in self.filtered_standards if not std["completed"]]
+
         # Enable the process_next_std_button if there are more than 1 standards
         if len(self.filtered_standards) > 1 and self.process_next_std_button:
             if self.process_next_std_button:
@@ -348,7 +430,8 @@ class StandardsHelperApp:  # pylint: disable=R0902
             # Populate the Treeview with filtered standards
             for standard in self.filtered_standards:
                 self.current_standards_tree.insert("", "end", values=(
-                    standard["id"], standard["text"], standard["level"]))
+                    standard["id"], standard["text"], standard["level"],
+                    "✓" if standard["completed"] else "✗"))
 
         # Update the requirements tree
         self.optional_requirements['Entered criteria name/No.'] = bool(
@@ -396,10 +479,22 @@ class StandardsHelperApp:  # pylint: disable=R0902
             item = self.current_standards_tree.selection()[0]
             standard = self.current_standards_tree.item(item)["values"]
             self.selected_standard = standard
-            print(f"Selected standard: {self.selected_standard}")
 
             if self.selected_current_file and self.selected_new_file:
                 self.compare_button.config(state="normal")
+
+        # Update the currently selected standard label
+        if self.currently_selected_label:
+            self.currently_selected_label.destroy()
+
+        self.currently_selected_label = tk.Label(
+            self.currently_selected_frame, textvariable=self.currently_selected_label_text,
+            font=("Calibri", 11))
+        self.currently_selected_label.pack()
+
+        if self.selected_standard:
+            self.currently_selected_label_text.set(
+                f"Currently selected standard: {self.selected_standard[0]}")
 
         # Update the requirements tree
         self.obligatory_requirements['Chosen a standard to compare'] = True
@@ -410,11 +505,12 @@ class StandardsHelperApp:  # pylint: disable=R0902
             item = self.matching_new_standards_tree.selection()[0]
             standard = self.matching_new_standards_tree.item(item)["values"]
             self.selected_new_standard = standard
-            print(f"\nSelected new standard: {self.selected_new_standard}")
-            print(f"Selected standard: {self.selected_standard}\n")
 
         if self.write_selected_new_standard_button:
             self.write_selected_new_standard_button.config(state="normal")
+
+        if self.open_selected_new_standard_button:
+            self.open_selected_new_standard_button.config(state="normal")
 
     def start_comparison(self):  # pylint: disable=R0915
         if self.selected_standard:
@@ -468,14 +564,10 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.potential_new_standards = []
         sorted_new_standards = sorted(self.new_standards, key=lambda x: self.matches[curr_std].get(
             x["id"], {}).get("weighted_similarity", 0), reverse=True)
-        print(f"Sorted new standards: {len(sorted_new_standards)}")
-        print(f"First sorted new standard: {sorted_new_standards[0]}")
+
         for new_standard in sorted_new_standards:
             if new_standard["id"] in self.matches[curr_std]:
                 self.potential_new_standards.append(new_standard)
-        print(f"Potential new standards: {len(self.potential_new_standards)}")
-        print(
-            f"First potential new standard: {self.potential_new_standards[0]}")
 
         if self.process_next_std_button:
             self.process_next_std_button.destroy()
@@ -501,6 +593,9 @@ class StandardsHelperApp:  # pylint: disable=R0902
         # Destroy the previous frame and scrollbar if they exist
         if self.more_matches_frame:
             self.more_matches_frame.destroy()
+
+        if self.file_buttons_frame:
+            self.file_buttons_frame.destroy()
 
         if self.new_stds_frame:
             self.new_stds_frame.destroy()
@@ -564,9 +659,6 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.more_matches_frame = tk.Frame(self.master)
         self.more_matches_frame.pack(pady=5)
 
-        if self.show_more_matches_button:
-            self.show_more_matches_button.destroy()
-
         self.show_more_matches_button = tk.Button(
             self.more_matches_frame, text="Show +10 More Matches",
             command=self.show_more_matches, width=30, font=("Calibri", 11))
@@ -577,9 +669,6 @@ class StandardsHelperApp:  # pylint: disable=R0902
             button=self.show_more_matches_button: self.change_cursor(event, button))
         self.show_more_matches_button.bind(
             "<Leave>", lambda _: self.master.config(cursor=""))
-
-        if self.show_all_matches_button:
-            self.show_all_matches_button.destroy()
 
         self.show_all_matches_button = tk.Button(
             self.more_matches_frame, text="Show All Matches",
@@ -595,11 +684,17 @@ class StandardsHelperApp:  # pylint: disable=R0902
         if self.write_selected_new_standard_button:
             self.write_selected_new_standard_button.destroy()
 
+        if self.open_selected_new_standard_button:
+            self.open_selected_new_standard_button.destroy()
+
+        self.file_buttons_frame = tk.Frame(self.master)
+        self.file_buttons_frame.pack(pady=5)
+
         # Button that writes the selected_new_standard to the Excel file
         self.write_selected_new_standard_button = tk.Button(
-            self.master, text="Write Selected New Standard",
-            command=self.write_selected_new_standard, width=63, font=("Calibri", 11))
-        self.write_selected_new_standard_button.pack(pady=5)
+            self.file_buttons_frame, text="Write Selected New Standard",
+            command=self.write_selected_new_standard, width=30, font=("Calibri", 11))
+        self.write_selected_new_standard_button.pack(side=tk.LEFT, padx=5)
         self.write_selected_new_standard_button.config(bg="#ff9999")
         self.write_selected_new_standard_button.bind(
             "<Enter>", lambda event,
@@ -608,12 +703,25 @@ class StandardsHelperApp:  # pylint: disable=R0902
             "<Leave>", lambda _: self.master.config(cursor=""))
         self.write_selected_new_standard_button.config(state="disabled")
 
+        # Button that opens the selected_new_standard in Excel
+        self.open_selected_new_standard_button = tk.Button(
+            self.file_buttons_frame, text="Open Selected New Standard in Excel",
+            command=lambda: self.open_file(self.selected_new_standard), width=30, font=("Calibri", 11))
+        self.open_selected_new_standard_button.pack(side=tk.LEFT, padx=5)
+        self.open_selected_new_standard_button.config(bg="#b3e6ff")
+        self.open_selected_new_standard_button.bind(
+            "<Enter>", lambda event,
+            button=self.open_selected_new_standard_button: self.change_cursor(event, button))
+        self.open_selected_new_standard_button.bind(
+            "<Leave>", lambda _: self.master.config(cursor=""))
+        self.open_selected_new_standard_button.config(state="disabled")
+
         if self.reset_button:
             self.reset_button.destroy()
 
         # Button that resets the app without unloading the files
         self.reset_button = tk.Button(
-            self.master, text="Reset Comparisons", command=self.reset_state, width=63, font=("Calibri", 11))
+            self.master, text="Reset", command=self.reset_state, width=30, font=("Calibri", 11))
         self.reset_button.pack(pady=5)
         self.reset_button.config(bg="#ff9999")
         self.reset_button.bind(
@@ -622,19 +730,73 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.reset_button.bind(
             "<Leave>", lambda _: self.master.config(cursor=""))
 
+    def open_file(self, file_path):
+        cell_num = get_cell_number_from_value(file_path[0])
+
+        if cell_num:
+            excel = win32com.client.Dispatch("Excel.Application")
+            excel.Visible = True
+            workbook = excel.Workbooks.Open(self.new_file_path)
+            worksheet = workbook.Worksheets("Unified Standard")
+            worksheet.Activate()
+            worksheet.Range(cell_num[1]).Select()
+        else:
+            self.show_error_popup(
+                "Error", "The given standard was not found in the Unified Standards file.")
+
     def write_selected_new_standard(self):
         if self.selected_new_standard:
             standard = self.selected_new_standard
             # Update the Excel file with the selected new standard
-            try:
-                if self.selected_standard and self.current_worksheet and standard:
-                    update_standards(
-                        self.selected_standard[0], standard[0], standard[1], standard[2], self.current_worksheet)
+            if self.selected_standard and self.current_worksheet and standard:
+                success = update_standards(
+                    self.selected_standard[0], standard[0], standard[1], standard[2], self.current_worksheet)
+                if success:
                     self.show_popup(
                         "Success", "The Excel file has been updated successfully.")
-            except Exception as e:
-                self.show_popup(
-                    "Error", f"An error occurred: {e}")
+
+                    # Update the current standard as completed and redisplay the standards
+                    for std in self.current_standards:
+                        if std["id"] == self.selected_standard[0] and not std["completed"]:
+                            std["completed"] = True
+                            break
+
+                    # Get the current selection from the treeview
+                    if self.current_standards_tree:
+                        selected_item_idx = self.current_standards_tree.index(
+                            self.current_standards_tree.selection()[0])
+                    else:
+                        selected_item_idx = None
+
+                    # Clear the of current standards and display them again
+                    current_standards = []
+                    if self.current_standards_tree:
+                        for item in self.current_standards_tree.get_children():
+                            current_standards.append(
+                                self.current_standards_tree.item(item)["values"])
+
+                        # Clear the Treeview
+                        for item in self.current_standards_tree.get_children():
+                            self.current_standards_tree.delete(item)
+
+                        # Populate the Treeview with the updated standards
+                        for standard in current_standards:
+                            print(f"Standard: {standard}")
+                            if standard[0] == self.selected_standard[0]:
+                                self.current_standards_tree.insert("", "end", values=(
+                                    standard[0], standard[1], standard[2], "✓"))
+                            else:
+                                self.current_standards_tree.insert("", "end", values=(
+                                    standard[0], standard[1], standard[2], "✓" if standard[3] == "✓" else "✗"))
+
+                        # Reselect the current standard
+                        if selected_item_idx:
+                            self.current_standards_tree.selection_set(
+                                self.current_standards_tree.get_children()[selected_item_idx])
+
+                else:
+                    self.show_error_popup(
+                        "Error", "An error occurred while updating the Excel file.\nPlease make sure the file is not open.")
 
     def reset_state(self):
         # Clear the content of the ID/Name Entry
@@ -693,11 +855,31 @@ class StandardsHelperApp:  # pylint: disable=R0902
         if self.filter_new_stds_entry:
             self.filter_new_stds_entry.destroy()
 
+        if self.file_buttons_frame:
+            self.file_buttons_frame.destroy()
+
         if self.write_selected_new_standard_button:
             self.write_selected_new_standard_button.destroy()
 
+        if self.open_selected_new_standard_button:
+            self.open_selected_new_standard_button.destroy()
+
         if self.reset_button:
             self.reset_button.destroy()
+
+        # Reset the current standard selected
+        self.selected_standard = None
+
+        # Redraw the selected standard label
+        if self.currently_selected_label:
+            self.currently_selected_label.destroy()
+
+        self.currently_selected_label = tk.Label(
+            self.currently_selected_frame, textvariable=self.currently_selected_label_text,
+            font=("Calibri", 11))
+        self.currently_selected_label.pack()
+        self.currently_selected_label_text.set(
+            "Currently selected standard: None")
 
     def show_more_matches(self):
         if self.matching_new_standards_tree and self.show_more_matches_button:
@@ -725,6 +907,9 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
     def show_popup(self, title, message):
         messagebox.showinfo(title, message)
+
+    def show_error_popup(self, title, message):
+        messagebox.showerror(title, message)
 
 
 root = tk.Tk()
