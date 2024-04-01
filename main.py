@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import filedialog, ttk
-from typing import Any
 
 from standards.inputs import get_text_comparisons, show_matches
 from standards.workbooks import get_new_standards, get_original_standards
@@ -97,12 +96,12 @@ class StandardsHelperApp:  # pylint: disable=R0902
     def on_entry_focus_in(self, _, entry, placeholder):
         if entry.get() == placeholder:
             entry.delete(0, tk.END)
-            entry.config(fg="black")  # Change text color to black
+            entry.config(fg="black")
 
     def on_entry_focus_out(self, _, entry, placeholder):
         if entry.get() == "":
             entry.insert(0, placeholder)
-            entry.config(fg="gray")  # Change text color to gray
+            entry.config(fg="gray")
 
     def select_current_file(self):
         self.current_file_path = filedialog.askopenfilename(
@@ -179,7 +178,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
                     standard["id"], standard["text"], standard["level"]))
 
         self.current_standards_tree.bind(
-            "<ButtonRelease-1>", self.on_treeview_select)  # Bind the selection event
+            "<ButtonRelease-1>", self.on_treeview_select)
 
         print(
             f"Updated current standards. Length: {len(self.current_standards)}")
@@ -219,9 +218,6 @@ class StandardsHelperApp:  # pylint: disable=R0902
             print(f"Selected standard: {self.selected_standard}")
 
     def start_comparison(self):  # pylint: disable=R0915
-        # Add logic to compare standards and display results
-        print("Starting comparison...")
-
         if self.selected_standard:
             curr_std = self.selected_standard[0]
             self.matches = {self.selected_standard[0]: {}}
@@ -305,8 +301,6 @@ class StandardsHelperApp:  # pylint: disable=R0902
             "Level", width=100, stretch=tk.NO)
         self.matching_new_standards_tree.column(
             "Similarity", width=100, stretch=tk.NO)
-        # self.current_standards_tree.pack(
-        #     in_=tree_frame, side="left", fill="both", expand=True)
         self.matching_new_standards_tree.pack(
             in_=tree_frame, side="left", fill="both", expand=True)
 
@@ -344,7 +338,8 @@ class StandardsHelperApp:  # pylint: disable=R0902
                 if self.selected_standard:
                     self.matching_new_standards_tree.insert("", "end", values=(
                         new_standard["id"], new_standard["text"], new_standard["level"],
-                        self.matches[self.selected_standard[0]].get(new_standard["id"], {}).get("weighted_similarity", 0)))
+                        self.matches[self.selected_standard[0]].get(
+                            new_standard["id"], {}).get("weighted_similarity", 0)))
 
     def show_all_matches(self):
         if self.matching_new_standards_tree:
@@ -352,7 +347,8 @@ class StandardsHelperApp:  # pylint: disable=R0902
                 if self.selected_standard:
                     self.matching_new_standards_tree.insert("", "end", values=(
                         new_standard["id"], new_standard["text"], new_standard["level"],
-                        self.matches[self.selected_standard[0]].get(new_standard["id"], {}).get("weighted_similarity", 0)))
+                        self.matches[self.selected_standard[0]].get(
+                            new_standard["id"], {}).get("weighted_similarity", 0)))
 
 
 root = tk.Tk()
