@@ -289,6 +289,19 @@ class StandardsHelperApp:  # pylint: disable=R0902
                     standard["id"], standard["text"], standard["level"],
                     "✓" if standard["completed"] else "✗"))
 
+        # Delete the text from the filters entry
+        self.filter_entry.delete(0, tk.END)
+        self.filter_entry.insert(
+            0, "Enter the name of the criteria or its No.")
+        self.filter_entry.config(fg="gray")
+        self.keywords_entry.delete(0, tk.END)
+        self.keywords_entry.insert(
+            0, "Enter keywords separated by commas")
+        self.keywords_entry.config(fg="gray")
+
+        # Reset the selected standard
+        self.selected_standard = None
+
     def select_new_file(self):
         self.new_file_path = filedialog.askopenfilename(
             filetypes=[("Excel Files", "*.xlsx"), ("All Files", "*.*")])
