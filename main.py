@@ -694,7 +694,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
                     self.show_popup(
                         "Success", "The Excel file has been updated successfully.")
                 else:
-                    self.show_popup(
+                    self.show_error_popup(
                         "Error", "An error occurred while updating the Excel file.\nPlease make sure the file is not open.")
 
     def reset_state(self):
@@ -786,6 +786,9 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
     def show_popup(self, title, message):
         messagebox.showinfo(title, message)
+
+    def show_error_popup(self, title, message):
+        messagebox.showerror(title, message)
 
 
 root = tk.Tk()
