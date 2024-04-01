@@ -143,7 +143,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.currently_selected_label_text = tk.StringVar()
 
         self.show_only_non_matched = tk.IntVar(value=0)
-        self.show_only_non_matched_checkbox = None
+        self.show_only_non_completed_standards = None
 
         self.current_stds_frame = None
         self.current_standards_tree = None
@@ -254,14 +254,14 @@ class StandardsHelperApp:  # pylint: disable=R0902
                 "Currently selected standard: None")
 
         # Add the checkbox to show only non-matched standards
-        if self.show_only_non_matched_checkbox:
-            self.show_only_non_matched_checkbox.destroy()
+        if self.show_only_non_completed_standards:
+            self.show_only_non_completed_standards.destroy()
 
-        self.show_only_non_matched_checkbox = tk.Checkbutton(
-            self.helper_inputs_frame, text="Show only non-matched standards",
+        self.show_only_non_completed_standards = tk.Checkbutton(
+            self.helper_inputs_frame, text="Show only non-complete standards",
             variable=self.show_only_non_matched, font=("Calibri", 11),
-            command=self.show_only_non_matched_standards)
-        self.show_only_non_matched_checkbox.pack(side=tk.RIGHT, padx=50)
+            command=self.show_only_non_complete_standards)
+        self.show_only_non_completed_standards.pack(side=tk.RIGHT, padx=50)
 
         self.display_current_standards()
 
@@ -269,9 +269,21 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.obligatory_requirements['Loaded Comparisons file'] = True
         self.populate_tree()
 
-    def show_only_non_matched_standards(self):
-        print(
-            f"Show only non-matched standards: {self.show_only_non_matched.get()}")
+    def show_only_non_complete_standards(self):
+        if self.show_only_non_matched.get():
+            self.filtered_standards = [
+                std for std in self.current_standards if not std["completed"]]
+        else:
+            self.filtered_standards = self.current_standards
+
+        if self.current_standards_tree:
+            for item in self.current_standards_tree.get_children():
+                self.current_standards_tree.delete(item)
+
+            for standard in self.filtered_standards:
+                self.current_standards_tree.insert("", "end", values=(
+                    standard["id"], standard["text"], standard["level"],
+                    "✓" if standard["completed"] else "✗"))
 
     def select_new_file(self):
         self.new_file_path = filedialog.askopenfilename(
@@ -283,7 +295,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
             self.compare_button.config(state="normal")
 
         self.new_standards = get_new_standards(self.new_file_path)
-        print(f"New standards: {len(self.new_standards)}")
+        # print(f"New standards: {len(self.new_standards)}")
 
         # Update the requirements tree
         self.obligatory_requirements['Loaded Unified Standards file'] = True
@@ -317,7 +329,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.current_stds_frame.pack(pady=10)
 
         self.current_standards_tree = ttk.Treeview(
-            self.current_stds_frame, columns=("No.", "Criteria", "Level"), show="headings",
+            self.current_stds_frame, columns=("No.", "Criteria", "Level", "Completed"), show="headings",
             selectmode="browse")
 
         style = ttk.Style()
@@ -327,11 +339,14 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.current_standards_tree.heading("No.", text="No.")
         self.current_standards_tree.heading("Criteria", text="Criteria")
         self.current_standards_tree.heading("Level", text="Level")
+        self.current_standards_tree.heading("Completed", text="Completed")
         self.current_standards_tree.column("#0", width=0, stretch=tk.NO)
         self.current_standards_tree.column("No.", width=50, stretch=tk.NO)
         self.current_standards_tree.column(
             "Criteria", width=750, stretch=tk.NO)
         self.current_standards_tree.column("Level", width=100, stretch=tk.NO)
+        self.current_standards_tree.column(
+            "Completed", width=100, stretch=tk.NO)
         self.current_standards_tree.pack(
             in_=self.current_stds_frame, side="left", fill="both", expand=True)
 
@@ -344,13 +359,13 @@ class StandardsHelperApp:  # pylint: disable=R0902
         for standard in self.current_standards:
             if standard:
                 self.current_standards_tree.insert("", "end", values=(
-                    standard["id"], standard["text"], standard["level"]))
+                    standard["id"], standard["text"], standard["level"],
+                    "✓" if standard["completed"] else "✗"))
 
         self.current_standards_tree.bind(
             "<ButtonRelease-1>", self.on_treeview_select)
 
-        print(
-            f"Updated current standards. Length: {len(self.current_standards)}")
+        # print(f"Updated current standards. Length: {len(self.current_standards)}")
 
     def process_next_standard(self):
         if self.filtered_standards and self.current_standards_tree:
@@ -383,6 +398,11 @@ class StandardsHelperApp:  # pylint: disable=R0902
                             criteria in standard["text"].lower():
                         self.filtered_standards.append(standard)
 
+        # Check if only the non-completed standards should be shown
+        if self.show_only_non_matched.get():
+            self.filtered_standards = [
+                std for std in self.filtered_standards if not std["completed"]]
+
         # Enable the process_next_std_button if there are more than 1 standards
         if len(self.filtered_standards) > 1 and self.process_next_std_button:
             if self.process_next_std_button:
@@ -396,7 +416,8 @@ class StandardsHelperApp:  # pylint: disable=R0902
             # Populate the Treeview with filtered standards
             for standard in self.filtered_standards:
                 self.current_standards_tree.insert("", "end", values=(
-                    standard["id"], standard["text"], standard["level"]))
+                    standard["id"], standard["text"], standard["level"],
+                    "✓" if standard["completed"] else "✗"))
 
         # Update the requirements tree
         self.optional_requirements['Entered criteria name/No.'] = bool(
@@ -444,7 +465,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
             item = self.current_standards_tree.selection()[0]
             standard = self.current_standards_tree.item(item)["values"]
             self.selected_standard = standard
-            print(f"Selected standard: {self.selected_standard}")
+            # print(f"Selected standard: {self.selected_standard}")
 
             if self.selected_current_file and self.selected_new_file:
                 self.compare_button.config(state="normal")
@@ -471,8 +492,8 @@ class StandardsHelperApp:  # pylint: disable=R0902
             item = self.matching_new_standards_tree.selection()[0]
             standard = self.matching_new_standards_tree.item(item)["values"]
             self.selected_new_standard = standard
-            print(f"\nSelected new standard: {self.selected_new_standard}")
-            print(f"Selected standard: {self.selected_standard}\n")
+            # print(f"\nSelected new standard: {self.selected_new_standard}")
+            # print(f"Selected standard: {self.selected_standard}\n")
 
         if self.write_selected_new_standard_button:
             self.write_selected_new_standard_button.config(state="normal")
@@ -529,14 +550,13 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.potential_new_standards = []
         sorted_new_standards = sorted(self.new_standards, key=lambda x: self.matches[curr_std].get(
             x["id"], {}).get("weighted_similarity", 0), reverse=True)
-        print(f"Sorted new standards: {len(sorted_new_standards)}")
-        print(f"First sorted new standard: {sorted_new_standards[0]}")
+        # print(f"Sorted new standards: {len(sorted_new_standards)}")
+        # print(f"First sorted new standard: {sorted_new_standards[0]}")
         for new_standard in sorted_new_standards:
             if new_standard["id"] in self.matches[curr_std]:
                 self.potential_new_standards.append(new_standard)
-        print(f"Potential new standards: {len(self.potential_new_standards)}")
-        print(
-            f"First potential new standard: {self.potential_new_standards[0]}")
+        # print(f"Potential new standards: {len(self.potential_new_standards)}")
+        # print(f"First potential new standard: {self.potential_new_standards[0]}")
 
         if self.process_next_std_button:
             self.process_next_std_button.destroy()
