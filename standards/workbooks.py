@@ -53,7 +53,7 @@ def get_new_standards(path: str) -> list[dict[str, Union[str, None]]]:
 
 def update_standards(id_value: str, new_id: str, new_text: str, new_level: str,
                      worksheet_name: str
-                     ) -> None:
+                     ) -> bool:
     """Update the standards with new values."""
     workbook = load_workbook(cfg.original_standards_file)
     worksheet = workbook[worksheet_name]
@@ -66,7 +66,7 @@ def update_standards(id_value: str, new_id: str, new_text: str, new_level: str,
             break
 
     if not row_number:
-        return
+        return False
 
     # Update the values in the row.
     worksheet[f"F{row_number}"] = new_id
@@ -77,4 +77,6 @@ def update_standards(id_value: str, new_id: str, new_text: str, new_level: str,
         workbook.save(cfg.original_standards_file)
     except PermissionError:
         print("Please close the file first before updating the standards.")
-        return
+        return False
+    else:
+        return True
