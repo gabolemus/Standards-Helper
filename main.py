@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog, ttk
+from tkinter import filedialog, messagebox, ttk
 
 from standards.inputs import get_text_comparisons, show_matches
 from standards.workbooks import (get_new_standards, get_original_standards,
@@ -277,14 +277,6 @@ class StandardsHelperApp:  # pylint: disable=R0902
         if self.write_selected_new_standard_button:
             self.write_selected_new_standard_button.config(state="normal")
 
-        # Update the Excel file with the selected new standard
-        try:
-            if self.selected_standard and self.current_worksheet and standard:
-                update_standards(
-                    self.selected_standard[0], standard[0], standard[1], standard[2], self.current_worksheet)
-        except Exception as e:
-            print(f"Error updating the Excel file: {e}")
-
     def start_comparison(self):  # pylint: disable=R0915
         if self.selected_standard:
             curr_std = self.selected_standard[0]
@@ -464,8 +456,17 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
     def write_selected_new_standard(self):
         if self.selected_new_standard:
-            print(
-                f"Selected new standard to the Excel file: {self.selected_new_standard}")
+            standard = self.selected_new_standard
+            # Update the Excel file with the selected new standard
+            try:
+                if self.selected_standard and self.current_worksheet and standard:
+                    update_standards(
+                        self.selected_standard[0], standard[0], standard[1], standard[2], self.current_worksheet)
+                    self.show_popup(
+                        "Success", "The Excel file has been updated successfully.")
+            except Exception as e:
+                self.show_popup(
+                    "Error", f"An error occurred: {e}")
 
     def reset_state(self):
         pass
@@ -493,6 +494,9 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
             self.show_more_matches_button.config(state="disabled")
             self.show_all_matches_button.config(state="disabled")
+
+    def show_popup(self, title, message):
+        messagebox.showinfo(title, message)
 
 
 root = tk.Tk()
