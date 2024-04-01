@@ -19,6 +19,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.current_standards = []
         self.filtered_standards = []
         self.selected_standard = None
+        self.filtered_new_standards = []
         self.new_standards = []
         self.keywords = []
         self.matches = {}
@@ -108,6 +109,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
         self.current_stds_scrollbar = None
         self.process_next_std_button = None
 
+        self.filter_new_stds_entry = None
         self.new_stds_frame = None
         self.matching_new_standards_tree = None
         self.new_stds_scrollbar = None
@@ -280,6 +282,34 @@ class StandardsHelperApp:  # pylint: disable=R0902
                 self.current_standards_tree.insert("", "end", values=(
                     standard["id"], standard["text"], standard["level"]))
 
+    def filter_new_standards(self, criteria):
+        # This function filters the new standards based on the criteria entered
+        # in the filter_new_stds_entry. The criteria may match the ID or the text
+        # of the new standard.
+        self.filtered_new_standards = []
+        if criteria == "":  # If the entry is empty, show all standards
+            self.filtered_new_standards = self.potential_new_standards
+        else:
+            for standard in self.potential_new_standards:
+                if standard and standard["text"] and standard["id"]:
+                    if standard["id"].startswith(criteria) or \
+                            criteria in standard["id"].lower() or \
+                        standard["text"].lower().startswith(criteria.lower()) or \
+                            criteria in standard["text"].lower():
+                        self.filtered_new_standards.append(standard)
+
+        # Clear the Treeview
+        if self.matching_new_standards_tree and self.selected_standard:
+            for item in self.matching_new_standards_tree.get_children():
+                self.matching_new_standards_tree.delete(item)
+
+            # Populate the Treeview with filtered standards
+            for standard in self.filtered_new_standards:
+                self.matching_new_standards_tree.insert("", "end", values=(
+                    standard["id"], standard["text"], standard["level"],
+                    self.matches[self.selected_standard[0]].get(
+                        standard["id"], {}).get("weighted_similarity", 0)))
+
     def filter_keywords(self, keywords_input):
         self.keywords = [kw.strip() for kw in keywords_input.split(
             ",") if kw.strip()] if keywords_input else []
@@ -393,6 +423,18 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
         if self.new_stds_scrollbar:
             self.new_stds_scrollbar.destroy()
+
+        # Entry to allow filtering of new standards
+        if self.filter_new_stds_entry:
+            self.filter_new_stds_entry.destroy()
+
+        self.filter_new_stds_entry = tk.Entry(
+            self.master, width=70, fg="gray", font=("Calibri", 11))
+        self.filter_new_stds_entry.pack(pady=5)
+        self.filter_new_stds_entry.bind("<KeyRelease>", lambda _: self.filter_new_standards(
+            self.filter_new_stds_entry.get()))
+        self.add_placeholder(self.filter_new_stds_entry,
+                             "Enter the name of the criteria or its No.")
 
         self.new_stds_frame = tk.Frame(self.master)
         self.new_stds_frame.pack(pady=10)
