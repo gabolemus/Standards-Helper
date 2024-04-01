@@ -9,9 +9,7 @@ if (-not (Test-Path .venv)) {
 .venv\Scripts\Activate.ps1
 
 # Install pypiwin32 if it doesn't exist
-if (pip show pypiwin32 -q) {
-    pip install pypiwin32
-}
+pip install pypiwin32
 
 # Install the required packages
 pip install -r requirements.txt
