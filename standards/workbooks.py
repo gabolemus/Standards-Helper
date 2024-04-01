@@ -87,3 +87,14 @@ def update_standards(id_value: str, new_id: str, new_text: str, new_level: str,
         print("Please close the file first before updating the standards.")
         return False
     return True
+
+
+def get_cell_number_from_value(value, workbook_name=cfg.new_standards_file):
+    workbook = load_workbook(workbook_name)
+    worksheet = workbook.active
+
+    for row in worksheet.iter_rows(min_row=4, min_col=1, max_col=1):
+        if row[0].value == value:
+            return row[0].row, row[0].coordinate.replace("A", "B")
+
+    return None
