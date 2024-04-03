@@ -25,9 +25,12 @@ def get_original_standards(path: str, worksheet: str) -> list[dict[str, Union[st
 
     original_standards: list[dict[str, Union[str, None]]] = []
     for row in original_rows:
-        if row[0] and row[1] and row[0] != "No." and \
-            (re.match(r"[A-Z]{1}\d.+", row[0]) or
-                re.match(r"(?<!\S)(?=[ivxlcdm]+\.$)[ivxlcdm]+\.", row[0])):
+        if row[0]:
+            matches = re.match(
+                r"^[A-Za-z]+[0-9]*(\.[0-9]+)*[a-z]*\.?[a-z]*$", row[0].strip())
+            print("Row: ", row[0], "Match: ", matches)
+
+        if row[0] and row[1] and row[0] != "No." and matches:
             standard = {
                 "id": row[0],
                 "text": row[1],
@@ -60,10 +63,10 @@ def get_new_standards(path: str) -> list[dict[str, Union[str, None]]]:
 
 
 def update_standards(id_value: str, new_id: str, new_text: str, new_level: str,
-                     worksheet_name: str
+                     worksheet_name: str, workbook_path: str
                      ) -> bool:
     """Update the standards with new values."""
-    workbook = load_workbook(cfg.original_standards_file)
+    workbook = load_workbook(workbook_path)
     worksheet = workbook[worksheet_name]
 
     row_number = None
@@ -82,14 +85,14 @@ def update_standards(id_value: str, new_id: str, new_text: str, new_level: str,
     worksheet[f"H{row_number}"] = new_level
 
     try:
-        workbook.save(cfg.original_standards_file)
+        workbook.save(workbook_path)
     except PermissionError:
         print("Please close the file first before updating the standards.")
         return False
     return True
 
 
-def get_cell_number_from_value(value, workbook_name=cfg.new_standards_file):
+def get_cell_number_from_value(value, workbook_name):
     workbook = load_workbook(workbook_name)
     worksheet = workbook.active
 

@@ -235,7 +235,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
 
         self.selected_worksheet_index.set(0)
         self.current_worksheet = self.worksheets[0]
-        self.current_file_button.config(state="disabled")
+        # self.current_file_button.config(state="disabled")
         self.selected_current_file = True
 
         if self.selected_new_file and self.selected_standard:
@@ -305,7 +305,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
     def select_new_file(self):
         self.new_file_path = filedialog.askopenfilename(
             filetypes=[("Excel Files", "*.xlsx"), ("All Files", "*.*")])
-        self.new_file_button.config(state="disabled")
+        # self.new_file_button.config(state="disabled")
         self.selected_new_file = True
 
         if self.selected_current_file and self.selected_standard:
@@ -731,7 +731,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
             "<Leave>", lambda _: self.master.config(cursor=""))
 
     def open_file(self, file_path):
-        cell_num = get_cell_number_from_value(file_path[0])
+        cell_num = get_cell_number_from_value(file_path[0], self.new_file_path)
 
         if cell_num:
             excel = win32com.client.Dispatch("Excel.Application")
@@ -750,7 +750,7 @@ class StandardsHelperApp:  # pylint: disable=R0902
             # Update the Excel file with the selected new standard
             if self.selected_standard and self.current_worksheet and standard:
                 success = update_standards(
-                    self.selected_standard[0], standard[0], standard[1], standard[2], self.current_worksheet)
+                    self.selected_standard[0], standard[0], standard[1], standard[2], self.current_worksheet, self.current_file_path)
                 if success:
                     self.show_popup(
                         "Success", "The Excel file has been updated successfully.")
